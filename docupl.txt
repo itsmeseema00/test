@@ -1,0 +1,760 @@
+package org.rbfcu.netbranch.documentupload.service;
+
+import java.util.List;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.rbfcu.business.log.ActivityType;
+import org.rbfcu.business.log.OnlineActivity;
+import org.rbfcu.business.member.MemberProfile;
+import org.rbfcu.netbranch.common.service.LogClientService;
+import org.rbfcu.netbranch.common.web.MemberSession;
+import org.rbfcu.netbranch.documentupload.utility.BusinessDocumentUploadUtility;
+import org.rbfcu.netbranch.loanorigination.status.bean.DocumentUploadForm;
+import org.rbfcu.netbranch.loanorigination.status.bean.DocumentUploadResult;
+import org.rbfcu.netbranch.loanorigination.status.bean.UploadEvent;
+import org.rbfcu.netbranch.loanorigination.status.service.DocumentUploadClientService;
+import org.rbfcu.service.loanorigination.LoanOriginationService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class BusinessDocumentUploadManager {
+
+	private static final Logger LOG = LoggerFactory.getLogger(BusinessDocumentUploadManager.class);
+	private static final long UNINITIALIZED_TIME = -1;
+
+	private DocumentUploadForm uploadForm;
+	private HttpServletRequest request;
+
+	public BusinessDocumentUploadManager(DocumentUploadForm uploadForm, HttpServletRequest request) {
+		this.uploadForm = uploadForm;
+		this.request = request;
+	}
+
+	public List<DocumentUploadResult> uploadDocuments() {
+		List<DocumentUploadResult> uploadResults = null;
+		long startTimeInMillis = System.currentTimeMillis();
+		long documentUploadCompletionTimeInMillis = UNINITIALIZED_TIME;
+		long loanOriginationUploadCompletionTimeInMillis = UNINITIALIZED_TIME;
+
+		try {
+
+			uploadResults = uploadBusinessToRepository();
+
+			if (uploadResults != null) {
+				documentUploadCompletionTimeInMillis = System.currentTimeMillis();
+				uploadResults = uploadFilePathToLoanOriginationSystem(uploadResults);
+				loanOriginationUploadCompletionTimeInMillis = System.currentTimeMillis();
+				logResult(uploadResults, startTimeInMillis, documentUploadCompletionTimeInMillis, loanOriginationUploadCompletionTimeInMillis);
+				notifyLending(uploadResults);
+
+			} else {
+				logFailure(documentUploadCompletionTimeInMillis, loanOriginationUploadCompletionTimeInMillis);
+			}
+
+		} catch (Exception e) {
+			LOG.error("Exception occured uploading documents: ", e);
+			logFailure(documentUploadCompletionTimeInMillis, loanOriginationUploadCompletionTimeInMillis);
+		}
+
+		return uploadResults;
+	}
+
+	private List<DocumentUploadResult> uploadBusinessToRepository() throws Exception {
+		MemberSession memberSession = new MemberSession(request);
+		MemberProfile memberProfile = memberSession.getMemberProfile();
+		String lendingRepositoryPrefix = BusinessDocumentUploadUtility.getRepository();
+
+		return new DocumentUploadClientService().uploadDocument(memberProfile, uploadForm, lendingRepositoryPrefix);
+	}
+
+	private List<DocumentUploadResult> uploadFilePathToLoanOriginationSystem(List<DocumentUploadResult> uploadResults) {
+
+		org.rbfcu.service.loanorigination.request.UploadDocumentRequest lpqUploadRequest =
+				new org.rbfcu.service.loanorigination.request.UploadDocumentRequest();
+
+		String templateTitle = new DocumentUploadClientService().getTemplateName(uploadForm.getTaskCode());
+		org.rbfcu.loanorigination.business.Document documentToUpload =
+				new BusinessDocumentUploadClient().buildLoanOriginationDocument(request, uploadForm, uploadResults, templateTitle);
+		lpqUploadRequest.setDocument(documentToUpload);
+
+		org.rbfcu.service.loanorigination.response.UploadDocumentResponse lpqUploadResponse =
+				new LoanOriginationService().uploadDocument(lpqUploadRequest);
+
+		if (lpqUploadResponse.isValid()) {
+			for (DocumentUploadResult uploadResult : uploadResults) {
+				if (uploadResult.isDocumentUploadSuccessful()) {
+					uploadResult.setLoanOriginationSystemUploadSuccessful(true);
+				}
+			}
+
+		} else {
+			LOG.error("Unable to upload document for loan {} to LPQ", documentToUpload.getLoanNumber());
+		}
+
+		return uploadResults;
+	}
+
+	private void logResult(List<DocumentUploadResult> uploadResults, long startTimeInMillis, long documentUploadCompletionTimeInMillis,
+			long loanOriginationUploadCompletionTimeInMillis) {
+
+		long timeTakenForDocumentUpload = documentUploadCompletionTimeInMillis - startTimeInMillis;
+		long timeTakenForLoanOriginationUpload = UNINITIALIZED_TIME;
+
+		if (loanOriginationUploadCompletionTimeInMillis != UNINITIALIZED_TIME) {
+			timeTakenForLoanOriginationUpload = loanOriginationUploadCompletionTimeInMillis - documentUploadCompletionTimeInMillis;
+		}
+
+		if (uploadResults == null) {
+			logFailure(timeTakenForDocumentUpload, timeTakenForLoanOriginationUpload);
+			return;
+		}
+
+		int successfulDocumentUploads = 0;
+		int successfulLoanOriginationUploads = 0;
+
+		for (DocumentUploadResult uploadResult : uploadResults) {
+			if (uploadResult.isDocumentUploadSuccessful()) {
+				successfulDocumentUploads++;
+			}
+
+			if (uploadResult.isLoanOriginationSystemUploadSuccessful()) {
+				successfulLoanOriginationUploads++;
+			}
+		}
+
+		if (successfulDocumentUploads == 0) {
+			logFailure(timeTakenForDocumentUpload, timeTakenForLoanOriginationUpload);
+			return;
+		}
+
+		int numberOfDocumentsToUpload = uploadForm.getFiles().size();
+		boolean haveAllDocumentsUploaded = haveAllDocumentsUploaded(numberOfDocumentsToUpload, successfulDocumentUploads);
+		boolean haveAllLinksToDocumentsUploaded = haveAllDocumentsUploaded(numberOfDocumentsToUpload, successfulLoanOriginationUploads);
+
+		if (haveAllDocumentsUploaded && haveAllLinksToDocumentsUploaded) {
+			String detail = String.format("Successfully uploaded %d document(s).", numberOfDocumentsToUpload);
+			logSuccess(detail, timeTakenForDocumentUpload, timeTakenForLoanOriginationUpload);
+			return;
+		}
+
+		logPartialSuccess(successfulDocumentUploads, successfulLoanOriginationUploads, timeTakenForDocumentUpload,
+				timeTakenForLoanOriginationUpload);
+	}
+
+	private boolean haveAllDocumentsUploaded(int numberOfDocumentsToUpload, int numberOfDocumentsUploaded) {
+		return numberOfDocumentsToUpload == numberOfDocumentsUploaded;
+	}
+
+	private void logSuccess(String description, long timeTakenForDocumentUpload, long timeTakenForLoanOriginationUpload) {
+		OnlineActivity successActivity =
+				buildActivity(ActivityType.DOCUMENT_UPLOAD_SUCCESS, description, timeTakenForDocumentUpload, timeTakenForLoanOriginationUpload);
+		logActivity(successActivity);
+	}
+
+	private void logPartialSuccess(int successfulDocumentUploads, int successfulLoanOriginationUploads, long timeTakenForDocumentUpload,
+			long timeTakenForLoanOriginationUpload) {
+		String description = String.format("Upload partial successful. Requested: %d, Document uploads: %d, Link uploads: %d",
+				uploadForm.getFiles().size(), successfulDocumentUploads, successfulLoanOriginationUploads);
+		OnlineActivity partialSuccessActivity = buildActivity(ActivityType.DOCUMENT_UPLOAD_PARTIAL_SUCCESS, description, timeTakenForDocumentUpload,
+				timeTakenForLoanOriginationUpload);
+		logActivity(partialSuccessActivity);
+	}
+
+	private void logFailure(long timeTakenForDocumentUpload, long timeTakenForLoanOriginationUpload) {
+		String description = String.format("Failed to upload %d document(s).", uploadForm.getFiles().size());
+		OnlineActivity failureActivity =
+				buildActivity(ActivityType.DOCUMENT_UPLOAD_FAIL, description, timeTakenForDocumentUpload, timeTakenForLoanOriginationUpload);
+		logActivity(failureActivity);
+	}
+
+	private void logActivity(OnlineActivity activity) {
+		new LogClientService(request).logActivity(activity);
+	}
+
+	private OnlineActivity buildActivity(ActivityType activityType, String description, long timeTakenForDocumentUpload,
+			long timeTakenForLoanOriginationUpload) {
+		OnlineActivity activity = new OnlineActivity();
+
+		activity.setActionCode(activityType.getCode());
+		activity.setKey1(String.valueOf(timeTakenForDocumentUpload));
+		activity.setKey2(String.valueOf(timeTakenForLoanOriginationUpload));
+		activity.setKey3(String.valueOf(uploadForm.getFiles().size()));
+
+		String employeeViewableDescription =
+				String.format(description + " Loan: %s, task: %s.", uploadForm.getLoanNumber(), uploadForm.getTaskCode());
+		activity.setDetail(employeeViewableDescription);
+
+		return activity;
+	}
+
+	private void notifyLending(List<DocumentUploadResult> uploadResults) {
+		MemberSession session = new MemberSession(request);
+		MemberProfile member = session.getMemberProfile();
+
+		UploadEvent notification = new UploadEvent();
+		notification.setLoanNumber(uploadForm.getLoanNumber());
+		notification.setPersNbr(member.getPersonNumber());
+		notification.setName(member.getName());
+
+		for (DocumentUploadResult uploadResult : uploadResults) {
+			notification.addDocument(uploadResult.getUploadedDocument());
+		}
+
+		new DocumentUploadClientService().sendNotificationEmailToLending(notification);
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+package org.rbfcu.netbranch.documentupload.service;
+
+import java.util.List;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.commons.lang3.ArrayUtils;
+import org.rbfcu.business.member.MemberProfile;
+import org.rbfcu.loanorigination.business.LoanType;
+import org.rbfcu.netbranch.common.web.MemberSession;
+import org.rbfcu.netbranch.loanorigination.status.bean.DocumentUploadForm;
+import org.rbfcu.netbranch.loanorigination.status.bean.DocumentUploadResult;
+import org.rbfcu.netbranch.loanorigination.status.utility.HtmlCreator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class BusinessDocumentUploadClient {
+
+	private static final Logger LOG = LoggerFactory.getLogger(BusinessDocumentUploadClient.class);
+
+	public org.rbfcu.loanorigination.business.Document buildLoanOriginationDocument(HttpServletRequest request, DocumentUploadForm uploadForm,
+			List<DocumentUploadResult> uploadResults, String templateTitle) {
+
+		MemberSession memberSession = new MemberSession(request);
+		MemberProfile memberProfile = memberSession.getMemberProfile();
+
+		String loanNumber = uploadForm.getLoanNumber();
+
+		byte[] htmlContent = new HtmlCreator().create(uploadResults);
+
+		String title = String.format("%s %s", uploadForm.getTaskCode(), templateTitle);
+		if (ArrayUtils.isEmpty(htmlContent)) {
+			LOG.error("Unable to create LPQ link for loan: {}, Document: {}", loanNumber, title);
+		}
+
+		org.rbfcu.loanorigination.business.Document document = new org.rbfcu.loanorigination.business.Document();
+		document.setOwnerFirstName(memberProfile.getName().getFirstName());
+		document.setOwnerLastName(memberProfile.getName().getLastName());
+		document.setLoanType(LoanType.BUSINESS.getCode());
+		document.setLoanNumber(loanNumber);
+		document.setTitle(title);
+		document.setContent(htmlContent);
+
+		return document;
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+package org.rbfcu.netbranch.documentupload.utility;
+
+import org.rbfcu.netbranch.common.web.NboConfig;
+
+public final class BusinessDocumentUploadUtility {
+
+	private BusinessDocumentUploadUtility() {
+
+	}
+
+	public static String getRepository() {
+
+		String repository = null;
+
+		repository = NboConfig.getInstance().getValue("doc.upload.businesslending.repository.businessloan");
+
+		return repository;
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+package org.rbfcu.netbranch.documentupload.controller;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.commons.lang3.StringUtils;
+import org.rbfcu.netbranch.documentupload.service.BusinessDocumentUploadManager;
+import org.rbfcu.netbranch.loanorigination.common.bean.LoanConstants;
+import org.rbfcu.netbranch.loanorigination.status.bean.DocumentUploadForm;
+import org.rbfcu.netbranch.loanorigination.status.bean.DocumentUploadResult;
+import org.rbfcu.netbranch.loanorigination.status.bean.LoanStatusInfo;
+import org.rbfcu.netbranch.loanorigination.status.utility.LoanStatusUtility;
+import org.rbfcu.netbranch.loanorigination.status.validator.DocumentUploadValidator;
+import org.rbfcu.netbranch.loanorigination.web.LoanSession;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BeanPropertyBindingResult;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.ObjectError;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.InitBinder;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+
+@Controller
+public class BusinessDocumentUploadController {
+
+	private static final Logger LOG = LoggerFactory.getLogger(BusinessDocumentUploadController.class);
+
+	@Autowired
+	@Qualifier("documentUploadValidator")
+	private DocumentUploadValidator documentUploadValidator;
+
+	@InitBinder
+	protected void initBinder(WebDataBinder binder) {
+		binder.setValidator(documentUploadValidator);
+	}
+
+	@RequestMapping(value = { "/businessloan/upload", "/mobileapp/businessloan/upload" }, method = RequestMethod.GET)
+	public String load(HttpServletRequest request, @ModelAttribute("uploadForm") DocumentUploadForm uploadForm, Model model) {
+		uploadForm.setLoanNumber("12345");
+		uploadForm.setTaskCode("code1");
+
+		model = populateFormValues(uploadForm, model);
+
+		boolean mobileAppMode = isMobileAppFlow(request);
+		String viewName = getShowUploadFormViewName(mobileAppMode);
+
+		return viewName;
+	}
+
+	@RequestMapping(value = { "/businessloan/upload", "/mobileapp/businessloan/upload" }, method = RequestMethod.POST,
+			consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
+	public String uploadFiles(HttpServletRequest request, @ModelAttribute("uploadForm") DocumentUploadForm uploadForm, Model model,
+			BindingResult result) {
+
+		try {
+			return uploadDocumentsAndCreateResponse(request, uploadForm, model, result);
+
+		} catch (Exception e) {
+			LOG.error("Error occured while uploading document(s)", e);
+			result = createUploadFailedError(uploadForm, result);
+			model = populateFormValues(uploadForm, model);
+
+			boolean mobileAppMode = isMobileAppFlow(request);
+			return getShowUploadFormViewName(mobileAppMode);
+		}
+	}
+
+	private Model populateFormValues(DocumentUploadForm uploadForm, Model model) {
+		model.addAttribute("loanNumber", uploadForm.getLoanNumber());
+		model.addAttribute("taskCode", uploadForm.getTaskCode());
+		return model;
+	}
+
+	private boolean isMobileAppFlow(HttpServletRequest request) {
+		boolean mobileAppModule = request.getRequestURI().toString().startsWith(LoanConstants.MOBILE_FLOW_IDENTIFIER);
+		return mobileAppModule;
+	}
+
+	private String uploadDocumentsAndCreateResponse(HttpServletRequest request, DocumentUploadForm uploadForm, Model model, BindingResult result) {
+
+		boolean mobileAppMode = isMobileAppFlow(request);
+		BeanPropertyBindingResult validationResult = buildBindingResult(uploadForm);
+		documentUploadValidator.validate(uploadForm, validationResult);
+		if (validationResult.hasErrors()) {
+			result = copyErrorsToResult(result, validationResult);
+			model = populateFormValues(uploadForm, model);
+
+			if (mobileAppMode) {
+				populateRequestWithSelectedLoanStatus(request, uploadForm.getLoanNumber());
+			}
+
+			return getErrorViewName(mobileAppMode);
+		}
+
+		BusinessDocumentUploadManager uploadManager = new BusinessDocumentUploadManager(uploadForm, request);
+		List<DocumentUploadResult> uploadResults = uploadManager.uploadDocuments();
+
+		List<String> successfulUploads = getUploadedFiles(uploadResults);
+		List<String> failedUploads = getFailedFiles(uploadResults);
+		model.addAttribute("uploadedDocuments", successfulUploads);
+		model.addAttribute("failedDocuments", failedUploads);
+
+		String viewName = getShowUploadResultViewName(mobileAppMode);
+		return viewName;
+
+	}
+
+	private BeanPropertyBindingResult buildBindingResult(DocumentUploadForm uploadForm) {
+		BeanPropertyBindingResult result = new BeanPropertyBindingResult(uploadForm, uploadForm.getClass().getName());
+		return result;
+
+	}
+
+	private BindingResult createUploadFailedError(DocumentUploadForm uploadForm, BindingResult result) {
+		BeanPropertyBindingResult validationResult = buildBindingResult(uploadForm);
+		validationResult.rejectValue("files", "error.document.upload.failed");
+
+		result = copyErrorsToResult(result, validationResult);
+		return result;
+	}
+
+	private BindingResult copyErrorsToResult(BindingResult result, BeanPropertyBindingResult validationResult) {
+		for (ObjectError error : validationResult.getAllErrors()) {
+			result.addError(error);
+		}
+
+		return result;
+	}
+
+	private void populateRequestWithSelectedLoanStatus(HttpServletRequest request, String loanNumber) {
+		LoanSession loanSession = new LoanSession(request);
+		LoanStatusInfo selectedLoanStatus = LoanStatusUtility.getSelectedLoanStatus(loanSession.getLoanStatusInfoList(), loanNumber);
+		request.setAttribute("selectedLoanStatus", selectedLoanStatus);
+	}
+
+	private List<String> getUploadedFiles(List<DocumentUploadResult> uploadResults) {
+		List<String> uploadedFiles = new ArrayList<String>();
+
+		for (DocumentUploadResult uploadResult : uploadResults) {
+			if (uploadResult.getUploadedDocument() != null) {
+				uploadedFiles.add(uploadResult.getOriginalFileName());
+			}
+		}
+
+		return uploadedFiles;
+	}
+
+	private List<String> getFailedFiles(List<DocumentUploadResult> uploadResults) {
+		List<String> failedFiles = new ArrayList<String>();
+
+		for (DocumentUploadResult uploadResult : uploadResults) {
+			if (uploadResult.getUploadedDocument() == null) {
+				if (StringUtils.isNotBlank(uploadResult.getOriginalFileName())) {
+					failedFiles.add(uploadResult.getOriginalFileName());
+				}
+			}
+		}
+
+		return failedFiles;
+	}
+
+	private String getShowUploadFormViewName(boolean mobileAppMode) {
+		String viewName = "Jsp/Loans/Status/LoanProofUpload";
+		if (mobileAppMode) {
+			viewName = "mobileapp/Loans/Status/documentUpload";
+		}
+		return viewName;
+	}
+
+	private String getErrorViewName(boolean mobileAppMode) {
+		String viewName = "Jsp/Loans/Status/Tasks";
+		if (mobileAppMode) {
+			viewName = "mobileapp/Loans/Status/loanProofUpload";
+		}
+		return viewName;
+	}
+
+	private String getShowUploadResultViewName(boolean mobileAppMode) {
+		String viewName = "Jsp/Loans/Status/Error";
+		if (mobileAppMode) {
+			viewName = "mobileapp/Loans/Status/actionItems";
+		}
+		return viewName;
+	}
+
+}
+
+
+controller 106
+List<DocumentUploadResult> uploadResults = uploadManager.uploadDocuments();
+manager 42
+uploadResults = uploadBusinessToRepository();
+after that
+
+
+
+
+
+
+
+package org.rbfcu.netbranch.documentupload.service;
+
+import java.util.List;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.rbfcu.business.log.ActivityType;
+import org.rbfcu.business.log.OnlineActivity;
+import org.rbfcu.business.member.MemberProfile;
+import org.rbfcu.netbranch.common.service.LogClientService;
+import org.rbfcu.netbranch.common.web.MemberSession;
+import org.rbfcu.netbranch.documentupload.utility.BusinessDocumentUploadUtility;
+import org.rbfcu.netbranch.loanorigination.status.bean.DocumentUploadForm;
+import org.rbfcu.netbranch.loanorigination.status.bean.DocumentUploadResult;
+import org.rbfcu.netbranch.loanorigination.status.bean.UploadEvent;
+import org.rbfcu.netbranch.loanorigination.status.service.DocumentUploadClientService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class BusinessDocumentUploadManager {
+
+	private static final Logger LOG = LoggerFactory.getLogger(BusinessDocumentUploadManager.class);
+	private static final long UNINITIALIZED_TIME = -1;
+
+	private DocumentUploadForm uploadForm;
+	private HttpServletRequest request;
+
+	public BusinessDocumentUploadManager(DocumentUploadForm uploadForm, HttpServletRequest request) {
+		this.uploadForm = uploadForm;
+		this.request = request;
+	}
+
+	public List<DocumentUploadResult> uploadDocuments() {
+		List<DocumentUploadResult> uploadResults = null;
+		long startTimeInMillis = System.currentTimeMillis();
+		long documentUploadCompletionTimeInMillis = UNINITIALIZED_TIME;
+		long loanOriginationUploadCompletionTimeInMillis = UNINITIALIZED_TIME;
+
+		try {
+
+			uploadResults = uploadBusinessToRepository();
+
+			if (uploadResults != null) {
+				documentUploadCompletionTimeInMillis = System.currentTimeMillis();
+				//uploadResults = uploadFilePathToLoanOriginationSystem(uploadResults);
+				loanOriginationUploadCompletionTimeInMillis = System.currentTimeMillis();
+				logResult(uploadResults, startTimeInMillis, documentUploadCompletionTimeInMillis, loanOriginationUploadCompletionTimeInMillis);
+				notifyLending(uploadResults);
+
+			} else {
+				logFailure(documentUploadCompletionTimeInMillis, loanOriginationUploadCompletionTimeInMillis);
+			}
+
+		} catch (Exception e) {
+			LOG.error("Exception occured uploading documents: ", e);
+			logFailure(documentUploadCompletionTimeInMillis, loanOriginationUploadCompletionTimeInMillis);
+		}
+
+		return uploadResults;
+	}
+
+	private List<DocumentUploadResult> uploadBusinessToRepository() throws Exception {
+		MemberSession memberSession = new MemberSession(request);
+		MemberProfile memberProfile = memberSession.getMemberProfile();
+		String lendingRepositoryPrefix = BusinessDocumentUploadUtility.getRepository();
+
+		return new DocumentUploadClientService().uploadDocument(memberProfile, uploadForm, lendingRepositoryPrefix);
+	}
+
+	/*private List<DocumentUploadResult> uploadFilePathToLoanOriginationSystem(List<DocumentUploadResult> uploadResults) {
+	
+		org.rbfcu.service.loanorigination.request.UploadDocumentRequest lpqUploadRequest =
+				new org.rbfcu.service.loanorigination.request.UploadDocumentRequest();
+	
+		String templateTitle = new DocumentUploadClientService().getTemplateName(uploadForm.getTaskCode());
+		org.rbfcu.loanorigination.business.Document documentToUpload =
+				new BusinessDocumentUploadClient().buildLoanOriginationDocument(request, uploadForm, uploadResults, templateTitle);
+		lpqUploadRequest.setDocument(documentToUpload);
+	
+		org.rbfcu.service.loanorigination.response.UploadDocumentResponse lpqUploadResponse =
+				new LoanOriginationService().uploadDocument(lpqUploadRequest);
+	
+		if (lpqUploadResponse.isValid()) {
+			for (DocumentUploadResult uploadResult : uploadResults) {
+				if (uploadResult.isDocumentUploadSuccessful()) {
+					uploadResult.setLoanOriginationSystemUploadSuccessful(true);
+				}
+			}
+	
+		} else {
+			LOG.error("Unable to upload document for loan {} to LPQ", documentToUpload.getLoanNumber());
+		}
+	
+		return uploadResults;
+	}
+	*/
+	private void logResult(List<DocumentUploadResult> uploadResults, long startTimeInMillis, long documentUploadCompletionTimeInMillis,
+			long loanOriginationUploadCompletionTimeInMillis) {
+
+		long timeTakenForDocumentUpload = documentUploadCompletionTimeInMillis - startTimeInMillis;
+		long timeTakenForLoanOriginationUpload = UNINITIALIZED_TIME;
+
+		if (loanOriginationUploadCompletionTimeInMillis != UNINITIALIZED_TIME) {
+			timeTakenForLoanOriginationUpload = loanOriginationUploadCompletionTimeInMillis - documentUploadCompletionTimeInMillis;
+		}
+
+		if (uploadResults == null) {
+			logFailure(timeTakenForDocumentUpload, timeTakenForLoanOriginationUpload);
+			return;
+		}
+
+		int successfulDocumentUploads = 0;
+		int successfulLoanOriginationUploads = 0;
+
+		for (DocumentUploadResult uploadResult : uploadResults) {
+			if (uploadResult.isDocumentUploadSuccessful()) {
+				successfulDocumentUploads++;
+			}
+
+			if (uploadResult.isLoanOriginationSystemUploadSuccessful()) {
+				successfulLoanOriginationUploads++;
+			}
+		}
+
+		if (successfulDocumentUploads == 0) {
+			logFailure(timeTakenForDocumentUpload, timeTakenForLoanOriginationUpload);
+			return;
+		}
+
+		int numberOfDocumentsToUpload = uploadForm.getFiles().size();
+		boolean haveAllDocumentsUploaded = haveAllDocumentsUploaded(numberOfDocumentsToUpload, successfulDocumentUploads);
+		boolean haveAllLinksToDocumentsUploaded = haveAllDocumentsUploaded(numberOfDocumentsToUpload, successfulLoanOriginationUploads);
+
+		if (haveAllDocumentsUploaded && haveAllLinksToDocumentsUploaded) {
+			String detail = String.format("Successfully uploaded %d document(s).", numberOfDocumentsToUpload);
+			logSuccess(detail, timeTakenForDocumentUpload, timeTakenForLoanOriginationUpload);
+			return;
+		}
+
+		logPartialSuccess(successfulDocumentUploads, successfulLoanOriginationUploads, timeTakenForDocumentUpload,
+				timeTakenForLoanOriginationUpload);
+	}
+
+	private boolean haveAllDocumentsUploaded(int numberOfDocumentsToUpload, int numberOfDocumentsUploaded) {
+		return numberOfDocumentsToUpload == numberOfDocumentsUploaded;
+	}
+
+	private void logSuccess(String description, long timeTakenForDocumentUpload, long timeTakenForLoanOriginationUpload) {
+		OnlineActivity successActivity =
+				buildActivity(ActivityType.DOCUMENT_UPLOAD_SUCCESS, description, timeTakenForDocumentUpload, timeTakenForLoanOriginationUpload);
+		logActivity(successActivity);
+	}
+
+	private void logPartialSuccess(int successfulDocumentUploads, int successfulLoanOriginationUploads, long timeTakenForDocumentUpload,
+			long timeTakenForLoanOriginationUpload) {
+		String description = String.format("Upload partial successful. Requested: %d, Document uploads: %d, Link uploads: %d",
+				uploadForm.getFiles().size(), successfulDocumentUploads, successfulLoanOriginationUploads);
+		OnlineActivity partialSuccessActivity = buildActivity(ActivityType.DOCUMENT_UPLOAD_PARTIAL_SUCCESS, description, timeTakenForDocumentUpload,
+				timeTakenForLoanOriginationUpload);
+		logActivity(partialSuccessActivity);
+	}
+
+	private void logFailure(long timeTakenForDocumentUpload, long timeTakenForLoanOriginationUpload) {
+		String description = String.format("Failed to upload %d document(s).", uploadForm.getFiles().size());
+		OnlineActivity failureActivity =
+				buildActivity(ActivityType.DOCUMENT_UPLOAD_FAIL, description, timeTakenForDocumentUpload, timeTakenForLoanOriginationUpload);
+		logActivity(failureActivity);
+	}
+
+	private void logActivity(OnlineActivity activity) {
+		new LogClientService(request).logActivity(activity);
+	}
+
+	private OnlineActivity buildActivity(ActivityType activityType, String description, long timeTakenForDocumentUpload,
+			long timeTakenForLoanOriginationUpload) {
+		OnlineActivity activity = new OnlineActivity();
+
+		activity.setActionCode(activityType.getCode());
+		activity.setKey1(String.valueOf(timeTakenForDocumentUpload));
+		activity.setKey2(String.valueOf(timeTakenForLoanOriginationUpload));
+		activity.setKey3(String.valueOf(uploadForm.getFiles().size()));
+
+		String employeeViewableDescription =
+				String.format(description + " Loan: %s, task: %s.", uploadForm.getLoanNumber(), uploadForm.getTaskCode());
+		activity.setDetail(employeeViewableDescription);
+
+		return activity;
+	}
+
+	private void notifyLending(List<DocumentUploadResult> uploadResults) {
+		MemberSession session = new MemberSession(request);
+		MemberProfile member = session.getMemberProfile();
+
+		UploadEvent notification = new UploadEvent();
+		notification.setLoanNumber(uploadForm.getLoanNumber());
+		notification.setPersNbr(member.getPersonNumber());
+		notification.setName(member.getName());
+
+		for (DocumentUploadResult uploadResult : uploadResults) {
+			notification.addDocument(uploadResult.getUploadedDocument());
+		}
+
+		new DocumentUploadClientService().sendNotificationEmailToLending(notification);
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
