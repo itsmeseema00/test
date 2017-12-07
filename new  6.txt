@@ -1,0 +1,771 @@
+<%@ include file="/includes/preHeaderArea.jspf" %>
+<%@ taglib uri="http://www.springframework.org/tags/form" prefix="form"%>
+<link href="/NBO/assets/css/documentupload.css${asset_id}" rel="stylesheet" />
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+
+<style>
+    #successMsg {
+        color: #32CD32;
+    }
+</style>
+
+<script>
+	var formParams = new FormData();
+	var filesToUpload = [];
+	$(".spinner").hide();
+	removeSpinner();
+	
+	$(document).ready(function () {
+		associateEvents();
+	});
+	
+	function associateEvents() {
+		$(".taskText").on('click',function(){
+			removeSpinner();
+		});
+		
+		$(".docUploadForm").on('submit',function (event) {
+			event.preventDefault();
+			
+			if(!$(this).find(".uploadSubmit").hasClass("uploadBtn")) {
+				return;
+			}
+			
+			launchSpinner();
+			$("span.remove").hide();
+						
+			formParams.append("loanNumber", $("#loanNumber").val());
+			formParams.append("taskCode", $("#taskCode").val());
+			
+			for (var i = 0; i < filesToUpload.length; i++) {    
+	    		formParams.append("files", filesToUpload[i]);
+	  		}
+			$.ajax ({
+			    type: "POST",
+			    enctype: 'multipart/form-data',
+			    url: "/NBO/businessloan/upload.sp",
+			    data: formParams,
+				processData: false,
+				contentType: false,
+			    timeout: 600000,
+			    success: function (data) {
+					removeSpinner();
+					if(validationErrorExists(data)) {
+						$(".docUploadForm").parent().html(data);
+					} else {
+						//$(".docUploadForm").parent().html(data);
+						uploadSuccess();
+						associateEvents();
+						uploadSuccess();
+						$(".con-loan-action-items-num").click();
+						$("html, body").scrollTop(0);
+					}
+			    },
+			    error: function (e) {
+			    	removeSpinner();
+			    }
+			});
+			
+		});
+		
+		function uploadSuccess() {
+  			var successUploadedHtml = "<p id='successMsg'>${uploadedDocuments} File(s) Uploaded Successfully!!<br></p>";					
+			$("#uploadFile").html(successUploadedHtml);		
+		
+		}
+		
+		$("#fileBrowser").on('click',function (event) {
+			$(this).val(null);
+		});
+
+		$("#fileBrowser").on('change',function (event) {
+			var files = $(this)[0].files;
+			
+			for (var i = 0; i < files.length; i++) {   
+				filesToUpload.push(files[i]); 
+	  		}
+	  		
+	  		updateFilesSelected();
+		});
+		
+		$("#addFiles").on('click',function (event) {
+			event.preventDefault();
+			$("#fileBrowser").click();
+		});
+	}
+	
+
+	
+	function validationErrorExists(data) {
+		return $(data).find('span.error').length > 0;
+	}
+	
+	function atleastOneDocumentSuccessfullyUploaded() {
+		return $('ul.successfulUploads').length > 0;
+	}
+	
+	function showReviewText() {
+		$(".docUploadForm").parent().parent().find(".review").show();
+	}
+	
+	
+	
+	function updateFilesSelected() {
+
+  		if (filesToUpload != null) {
+
+			var filesSelectedHtml = "<p></p><p class='bold filesSelected'>Files selected:</p><ul>";
+			
+			for (var i = 0; i < filesToUpload.length; i++) {   
+				filesSelectedHtml = filesSelectedHtml + "<li class='fileName'>" + "<span>" + formatFileName(filesToUpload[i].name) + "</span>"  + "  "  + "<span>"  +  formatBytes(filesToUpload[i].size)  + "</span>"  + "<span class='remove'>Remove file</span></li>"; 
+  			}
+		
+			var filesSelectedHtml = filesSelectedHtml + "</ul>";
+		
+			$("#filesSelected").html(filesSelectedHtml);
+			enableSubmit();
+			bindRemoveEvent();
+			
+		} else {
+			$("#filesSelected").html('');
+		} 
+	}
+	
+	function formatFileName(fileName) {
+		var nameSuffix = '....';
+		var numberOfCharactersFromFileNameToBeDisplayed = 15;
+		
+		var expectedNameLength = numberOfCharactersFromFileNameToBeDisplayed + nameSuffix.length;  
+		
+		if (fileName.length <= numberOfCharactersFromFileNameToBeDisplayed) {
+			return fileName;
+		}
+		
+		return fileName.substr(0, numberOfCharactersFromFileNameToBeDisplayed) + nameSuffix;
+	}
+	
+	function bindRemoveEvent() {
+		$("li.fileName > span.remove").bind('click',function (event) {
+			
+			var fileIndexToRemove = $(this).parent().index();
+			filesToUpload.splice(fileIndexToRemove, 1);
+			
+			updateFilesSelected();
+			
+			if(filesToUpload.length == 0) {
+				disableSubmit();
+			}
+		});
+	}
+
+	
+	
+	function formatBytes(a, b) {
+		if (0 == a) {
+			return "0 Bytes";
+		}
+			
+		var c = 1024;
+		var d = b || 2;
+		var e = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+		var f = Math.floor(Math.log(a) / Math.log(c));
+		
+		return Math.ceil(parseFloat((a / Math.pow(c, f)).toFixed(d))) + " " + e[f];
+	}
+	
+	function enableSubmit() {
+		$(".uploadSubmit").addClass("uploadBtn");
+		$(".uploadSubmit").removeClass("inactive");
+		$(".uploadSubmit").prop('disabled', false);
+	}
+	
+	function disableSubmit() {
+		$(".uploadSubmit").removeClass("uploadBtn");
+		$(".uploadSubmit").addClass("inactive");
+		$(".uploadSubmit").prop('disabled', true);
+		
+	}
+	
+	function launchSpinner() {
+		$(".spinner").css ({
+      		"display": "block",
+      		"pointer-events":"none"
+    	});
+    	
+    	//$("body").append('<div class="modalOverlay"></div>');
+    	$("#spinnerSection").addClass("modalOverlay");	
+    	$("body").css ({
+      		"pointer-events":"none"
+    	});
+	}
+	
+	function removeSpinner() {
+		$(".spinner").css("display","none");
+		/* $("body").remove('modalOverlay'); */
+		// $("body").remove('div.modalOverlay');
+		$("#spinnerSection").removeClass("modalOverlay");
+		$("body").css ({
+      		"pointer-events":"auto"
+    	});
+	}
+</script>
+<tiles:insert definition="template">
+    <tiles:put name="title" value="Application Status" />
+    <tiles:put name="subNav" value="loansmenu.bar" />
+    <tiles:put name="currentMenu" value="statusMenu" />
+    <tiles:put name="currentStep" value="1" />
+    <tiles:put name="menuHighlight" value="statusMenu" type="string" />
+    <tiles:put name="mainNav" value="Loans" />
+    <tiles:put name="sidebar" value="" />
+    <tiles:put name="head" direct="true">
+         <link href="/NBO/assets/css/loanstatus.css${asset_id}" rel="stylesheet" type="text/css" />
+        <link href="/NBO/assets/css/documentupload.css?upd=20171123" rel="stylesheet">
+       
+    </tiles:put>
+	<tiles:put name="bodyarea" direct="true">
+           
+        <form:form enctype="multipart/form-data" action="/NBO/businessloan/upload.sp" method="post" class="docUploadForm" commandName="uploadForm">
+        <div  class="uploadFormNoteInstnum">
+        <h4>Provide proof of loan payoff (receipt, loan statement or document from financial institution).</h4><br>
+        <p class="instrtFormNoteImg">Please select all documents by clicking Add files(s). <br/>Once selected, please click on Upload.</p>
+        </div>
+        <div id="spinnerSection" role="alertdialog" aria-hidden="true" aria-busy="true" aria-live="assertive"></div>
+        <div>
+            <div class="upload-btn-wrapper">
+    
+                <input type="file" multiple="multiple" name="files" id="fileBrowser" style="display: none;"/>
+                <input type="hidden" name="loanNumber" class="loanNumber" value="${loanNumber}" id="loanNumber"/>
+                <input type="hidden" name="taskCode" class="taskCode" value="${taskCode}" id="taskCode"/>
+    
+                <div id="filesSelected"></div>
+                <form:errors path="*" class="error" /><p></p>
+                <div id= "uploadFile"></div>
+                <button class="uploadBtn" id="addFiles">Add file(s)</button>
+                <input type="submit" class="uploadSubmitInactive uploadSubmit inactive" value="Upload" disabled="disabled">
+                <div class="spinner">
+                    <div class="vertical-centered-box">
+                        <div class="content">
+                            <div class="loader-circle"></div>
+                            <div class="loader-line-mask">
+                                <div class="loader-line"></div>
+                            </div>
+                            <img src="/NBO/assets/img/rbfcu-spain-logo.svg" class="spin-img" alt="rbfcu spinner" role="img">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form:form>
+    
+       	</tiles:put>
+</tiles:insert>
+
+
+
+
+
+
+
+
+
+
+
+
+<%@ include file="/includes/preHeaderArea.jspf" %>
+<link href="/NBO/assets/css/loanstatus.css${asset_id}" rel="stylesheet" type="text/css" />
+<c:set var="uploadedDocuments" value="${uploadedDocuments}" />
+<c:set var="failedDocuments" value="${failedDocuments}" />
+<h4 id='successMsg'>${fn:length(uploadedDocuments)} File(s) Uploaded Successfully!!<br></br></h4>;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+package org.rbfcu.netbranch.documentupload.controller;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.commons.lang3.StringUtils;
+import org.rbfcu.netbranch.documentupload.service.BusinessDocumentUploadManager;
+import org.rbfcu.netbranch.loanorigination.common.bean.LoanConstants;
+import org.rbfcu.netbranch.loanorigination.status.bean.DocumentUploadForm;
+import org.rbfcu.netbranch.loanorigination.status.bean.DocumentUploadResult;
+import org.rbfcu.netbranch.loanorigination.status.bean.LoanStatusInfo;
+import org.rbfcu.netbranch.loanorigination.status.utility.LoanStatusUtility;
+import org.rbfcu.netbranch.loanorigination.status.validator.DocumentUploadValidator;
+import org.rbfcu.netbranch.loanorigination.web.LoanSession;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BeanPropertyBindingResult;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.ObjectError;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.InitBinder;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+
+@Controller
+public class BusinessDocumentUploadController {
+
+	private static final Logger LOG = LoggerFactory.getLogger(BusinessDocumentUploadController.class);
+
+	@Autowired
+	@Qualifier("documentUploadValidator")
+	private DocumentUploadValidator documentUploadValidator;
+
+	@InitBinder
+	protected void initBinder(WebDataBinder binder) {
+		binder.setValidator(documentUploadValidator);
+	}
+
+	@RequestMapping(value = { "/businessloan/upload", "/mobileapp/businessloan/upload" }, method = RequestMethod.GET)
+	public String load(HttpServletRequest request, @ModelAttribute("uploadForm") DocumentUploadForm uploadForm, Model model) {
+		uploadForm.setLoanNumber("12345");
+		uploadForm.setTaskCode("code1");
+
+		model = populateFormValues(uploadForm, model);
+
+		boolean mobileAppMode = isMobileAppFlow(request);
+		String viewName = getShowUploadFormViewName(mobileAppMode);
+
+		return viewName;
+	}
+
+	@RequestMapping(value = { "/businessloan/upload", "/mobileapp/businessloan/upload" }, method = RequestMethod.POST,
+			consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
+	public String uploadFiles(HttpServletRequest request, @ModelAttribute("uploadForm") DocumentUploadForm uploadForm, Model model,
+			BindingResult result) {
+
+		try {
+			return uploadDocumentsAndCreateResponse(request, uploadForm, model, result);
+
+		} catch (Exception e) {
+			LOG.error("Error occured while uploading document(s)", e);
+			result = createUploadFailedError(uploadForm, result);
+			model = populateFormValues(uploadForm, model);
+
+			boolean mobileAppMode = isMobileAppFlow(request);
+			return getShowUploadFormViewName(mobileAppMode);
+		}
+	}
+
+	private Model populateFormValues(DocumentUploadForm uploadForm, Model model) {
+		model.addAttribute("loanNumber", uploadForm.getLoanNumber());
+		model.addAttribute("taskCode", uploadForm.getTaskCode());
+		return model;
+	}
+
+	private boolean isMobileAppFlow(HttpServletRequest request) {
+		boolean mobileAppModule = request.getRequestURI().toString().startsWith(LoanConstants.MOBILE_FLOW_IDENTIFIER);
+		return mobileAppModule;
+	}
+
+	private String uploadDocumentsAndCreateResponse(HttpServletRequest request, DocumentUploadForm uploadForm, Model model, BindingResult result) {
+
+		boolean mobileAppMode = isMobileAppFlow(request);
+		BeanPropertyBindingResult validationResult = buildBindingResult(uploadForm);
+		documentUploadValidator.validate(uploadForm, validationResult);
+		if (validationResult.hasErrors()) {
+			result = copyErrorsToResult(result, validationResult);
+			model = populateFormValues(uploadForm, model);
+
+			if (mobileAppMode) {
+				populateRequestWithSelectedLoanStatus(request, uploadForm.getLoanNumber());
+			}
+
+			return getErrorViewName(mobileAppMode);
+		}
+
+		BusinessDocumentUploadManager uploadManager = new BusinessDocumentUploadManager(uploadForm, request);
+		List<DocumentUploadResult> uploadResults = uploadManager.uploadDocuments();
+
+		List<String> successfulUploads = getUploadedFiles(uploadResults);
+		List<String> failedUploads = getFailedFiles(uploadResults);
+		model.addAttribute("uploadedDocuments", successfulUploads);
+		model.addAttribute("failedDocuments", failedUploads);
+
+		String viewName = getShowUploadResultViewName(mobileAppMode);
+		return viewName;
+
+	}
+
+	private BeanPropertyBindingResult buildBindingResult(DocumentUploadForm uploadForm) {
+		BeanPropertyBindingResult result = new BeanPropertyBindingResult(uploadForm, uploadForm.getClass().getName());
+		return result;
+
+	}
+
+	private BindingResult createUploadFailedError(DocumentUploadForm uploadForm, BindingResult result) {
+		BeanPropertyBindingResult validationResult = buildBindingResult(uploadForm);
+		validationResult.rejectValue("files", "error.document.upload.failed");
+
+		result = copyErrorsToResult(result, validationResult);
+		return result;
+	}
+
+	private BindingResult copyErrorsToResult(BindingResult result, BeanPropertyBindingResult validationResult) {
+		for (ObjectError error : validationResult.getAllErrors()) {
+			result.addError(error);
+		}
+
+		return result;
+	}
+
+	private void populateRequestWithSelectedLoanStatus(HttpServletRequest request, String loanNumber) {
+		LoanSession loanSession = new LoanSession(request);
+		LoanStatusInfo selectedLoanStatus = LoanStatusUtility.getSelectedLoanStatus(loanSession.getLoanStatusInfoList(), loanNumber);
+		request.setAttribute("selectedLoanStatus", selectedLoanStatus);
+	}
+
+	private List<String> getUploadedFiles(List<DocumentUploadResult> uploadResults) {
+		List<String> uploadedFiles = new ArrayList<String>();
+
+		for (DocumentUploadResult uploadResult : uploadResults) {
+			if (uploadResult.getUploadedDocument() != null) {
+				uploadedFiles.add(uploadResult.getOriginalFileName());
+			}
+		}
+
+		return uploadedFiles;
+	}
+
+	private List<String> getFailedFiles(List<DocumentUploadResult> uploadResults) {
+		List<String> failedFiles = new ArrayList<String>();
+
+		for (DocumentUploadResult uploadResult : uploadResults) {
+			if (uploadResult.getUploadedDocument() == null) {
+				if (StringUtils.isNotBlank(uploadResult.getOriginalFileName())) {
+					failedFiles.add(uploadResult.getOriginalFileName());
+				}
+			}
+		}
+
+		return failedFiles;
+	}
+
+	private String getShowUploadFormViewName(boolean mobileAppMode) {
+		String viewName = "Jsp/Loans/Status/LoanProofUpload";
+		if (mobileAppMode) {
+			viewName = "mobileapp/Loans/Status/documentUpload";
+		}
+		return viewName;
+	}
+
+	private String getErrorViewName(boolean mobileAppMode) {
+		String viewName = "Jsp/Loans/Status/Tasks";
+		if (mobileAppMode) {
+			viewName = "mobileapp/Loans/Status/loanProofUpload";
+		}
+		return viewName;
+	}
+
+	private String getShowUploadResultViewName(boolean mobileAppMode) {
+		String viewName = "Jsp/Loans/Status/Error";
+		if (mobileAppMode) {
+			viewName = "mobileapp/Loans/Status/actionItems";
+		}
+		return viewName;
+	}
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<%@ include file="/includes/preHeaderArea.jspf" %>
+<%@ taglib uri="http://www.springframework.org/tags/form" prefix="form"%>
+<link href="/NBO/assets/css/documentupload.css${asset_id}" rel="stylesheet" />
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+
+<style>
+    #successMsg {
+        color: #32CD32;
+    }
+</style>
+
+<script>
+	var formParams = new FormData();
+	var filesToUpload = [];
+	$(".spinner").hide();
+	removeSpinner();
+	
+	$(document).ready(function () {
+		associateEvents();
+	});
+	
+	function associateEvents() {
+		$(".taskText").on('click',function(){
+			removeSpinner();
+		});
+		
+		$(".docUploadForm").on('submit',function (event) {
+			event.preventDefault();
+			
+			if(!$(this).find(".uploadSubmit").hasClass("uploadBtn")) {
+				return;
+			}
+			
+			launchSpinner();
+			$("span.remove").hide();
+						
+			formParams.append("loanNumber", $("#loanNumber").val());
+			formParams.append("taskCode", $("#taskCode").val());
+			
+			for (var i = 0; i < filesToUpload.length; i++) {    
+	    		formParams.append("files", filesToUpload[i]);
+	  		}
+			$.ajax ({
+			    type: "POST",
+			    enctype: 'multipart/form-data',
+			    url: "/NBO/businessloan/upload.sp",
+			    data: formParams,
+				processData: false,
+				contentType: false,
+			    timeout: 600000,
+			    success: function (data) {
+					removeSpinner();
+					if(validationErrorExists(data)) {
+						$(".docUploadForm").parent().html(data);
+					} else {
+						//$(".docUploadForm").parent().html(data);
+						uploadSuccess();
+						associateEvents();
+						$(".con-loan-action-items-num").click();
+						$("html, body").scrollTop(0);
+					}
+			    },
+			    error: function (e) {
+			    	removeSpinner();
+			    }
+			});
+			
+		});
+		
+		function uploadSuccess() {
+  			var successUploadedHtml = "<p id='successMsg'>${uploadedDocuments} File(s) Uploaded Successfully!!<br></p>";					
+			$("#uploadFile").html(successUploadedHtml);		
+		
+		}
+		
+		$("#fileBrowser").on('click',function (event) {
+			$(this).val(null);
+		});
+
+		$("#fileBrowser").on('change',function (event) {
+			var files = $(this)[0].files;
+			
+			for (var i = 0; i < files.length; i++) {   
+				filesToUpload.push(files[i]); 
+	  		}
+	  		
+	  		updateFilesSelected();
+		});
+		
+		$("#addFiles").on('click',function (event) {
+			event.preventDefault();
+			$("#fileBrowser").click();
+		});
+	}
+	
+
+	
+	function validationErrorExists(data) {
+		return $(data).find('span.error').length > 0;
+	}
+	
+	function atleastOneDocumentSuccessfullyUploaded() {
+		return $('ul.successfulUploads').length > 0;
+	}
+	
+	function showReviewText() {
+		$(".docUploadForm").parent().parent().find(".review").show();
+	}
+	
+	
+	
+	function updateFilesSelected() {
+
+  		if (filesToUpload != null) {
+
+			var filesSelectedHtml = "<p></p><p class='bold filesSelected'>Files selected:</p><ul>";
+			
+			for (var i = 0; i < filesToUpload.length; i++) {   
+				filesSelectedHtml = filesSelectedHtml + "<li class='fileName'>" + "<span>" + formatFileName(filesToUpload[i].name) + "</span>"  + "  "  + "<span>"  +  formatBytes(filesToUpload[i].size)  + "</span>"  + "<span class='remove'>Remove file</span></li>"; 
+  			}
+		
+			var filesSelectedHtml = filesSelectedHtml + "</ul>";
+		
+			$("#filesSelected").html(filesSelectedHtml);
+			enableSubmit();
+			bindRemoveEvent();
+			
+		} else {
+			$("#filesSelected").html('');
+		} 
+	}
+	
+	function formatFileName(fileName) {
+		var nameSuffix = '....';
+		var numberOfCharactersFromFileNameToBeDisplayed = 15;
+		
+		var expectedNameLength = numberOfCharactersFromFileNameToBeDisplayed + nameSuffix.length;  
+		
+		if (fileName.length <= numberOfCharactersFromFileNameToBeDisplayed) {
+			return fileName;
+		}
+		
+		return fileName.substr(0, numberOfCharactersFromFileNameToBeDisplayed) + nameSuffix;
+	}
+	
+	function bindRemoveEvent() {
+		$("li.fileName > span.remove").bind('click',function (event) {
+			
+			var fileIndexToRemove = $(this).parent().index();
+			filesToUpload.splice(fileIndexToRemove, 1);
+			
+			updateFilesSelected();
+			
+			if(filesToUpload.length == 0) {
+				disableSubmit();
+			}
+		});
+	}
+
+	
+	
+	function formatBytes(a, b) {
+		if (0 == a) {
+			return "0 Bytes";
+		}
+			
+		var c = 1024;
+		var d = b || 2;
+		var e = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+		var f = Math.floor(Math.log(a) / Math.log(c));
+		
+		return Math.ceil(parseFloat((a / Math.pow(c, f)).toFixed(d))) + " " + e[f];
+	}
+	
+	function enableSubmit() {
+		$(".uploadSubmit").addClass("uploadBtn");
+		$(".uploadSubmit").removeClass("inactive");
+		$(".uploadSubmit").prop('disabled', false);
+	}
+	
+	function disableSubmit() {
+		$(".uploadSubmit").removeClass("uploadBtn");
+		$(".uploadSubmit").addClass("inactive");
+		$(".uploadSubmit").prop('disabled', true);
+		
+	}
+	
+	function launchSpinner() {
+		$(".spinner").css ({
+      		"display": "block",
+      		"pointer-events":"none"
+    	});
+    	
+    	//$("body").append('<div class="modalOverlay"></div>');
+    	$("#spinnerSection").addClass("modalOverlay");	
+    	$("body").css ({
+      		"pointer-events":"none"
+    	});
+	}
+	
+	function removeSpinner() {
+		$(".spinner").css("display","none");
+		/* $("body").remove('modalOverlay'); */
+		// $("body").remove('div.modalOverlay');
+		$("#spinnerSection").removeClass("modalOverlay");
+		$("body").css ({
+      		"pointer-events":"auto"
+    	});
+	}
+</script>
+<tiles:insert definition="template">
+    <tiles:put name="title" value="Application Status" />
+    <tiles:put name="subNav" value="loansmenu.bar" />
+    <tiles:put name="currentMenu" value="statusMenu" />
+    <tiles:put name="currentStep" value="1" />
+    <tiles:put name="menuHighlight" value="statusMenu" type="string" />
+    <tiles:put name="mainNav" value="Loans" />
+    <tiles:put name="sidebar" value="" />
+    <tiles:put name="head" direct="true">
+         <link href="/NBO/assets/css/loanstatus.css${asset_id}" rel="stylesheet" type="text/css" />
+        <link href="/NBO/assets/css/documentupload.css?upd=20171123" rel="stylesheet">
+       
+    </tiles:put>
+	<tiles:put name="bodyarea" direct="true">
+           
+        <form:form enctype="multipart/form-data" action="/NBO/businessloan/upload.sp" method="post" class="docUploadForm" commandName="uploadForm">
+        <div  class="uploadFormNoteInstnum">
+        <h4>Provide proof of loan payoff (receipt, loan statement or document from financial institution).</h4><br>
+        <p class="instrtFormNoteImg">Please select all documents by clicking Add files(s). <br/>Once selected, please click on Upload.</p>
+        </div>
+        <div id="spinnerSection" role="alertdialog" aria-hidden="true" aria-busy="true" aria-live="assertive"></div>
+        <div>
+            <div class="upload-btn-wrapper">
+    
+                <input type="file" multiple="multiple" name="files" id="fileBrowser" style="display: none;"/>
+                <input type="hidden" name="loanNumber" class="loanNumber" value="${loanNumber}" id="loanNumber"/>
+                <input type="hidden" name="taskCode" class="taskCode" value="${taskCode}" id="taskCode"/>
+    
+                <div id="filesSelected"></div>
+                <form:errors path="*" class="error" /><p></p>
+                <div id= "uploadFile"></div>
+                <button class="uploadBtn" id="addFiles">Add file(s)</button>
+                <input type="submit" class="uploadSubmitInactive uploadSubmit inactive" value="Upload" disabled="disabled">
+                <div class="spinner">
+                    <div class="vertical-centered-box">
+                        <div class="content">
+                            <div class="loader-circle"></div>
+                            <div class="loader-line-mask">
+                                <div class="loader-line"></div>
+                            </div>
+                            <img src="/NBO/assets/img/rbfcu-spain-logo.svg" class="spin-img" alt="rbfcu spinner" role="img">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form:form>
+    
+       	</tiles:put>
+</tiles:insert>
