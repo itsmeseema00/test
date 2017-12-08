@@ -1,0 +1,1463 @@
+bean
+
+package org.rbfcu.projectview.bean;
+
+import java.util.List;
+import java.util.Set;
+
+public class ProjectViewForm {
+
+	private List<Ticket> tickets;
+	private Set<String> requestDeptSet;
+	private Set<String> prioritySet;
+	private Set<String> ticketIdSet;
+	private Set<String> requestStatusSet;
+     private String status;
+
+
+	public Set<String> getSourceTicketIdSet() {
+		return ticketIdSet;
+	}
+
+	public void setSourceTicketIdSet(Set<String> sourceTicketIdSet) {
+		this.ticketIdSet = sourceTicketIdSet;
+	}
+
+	public List<Ticket> getTickets() {
+		return tickets;
+	}
+
+	public void setTickets(List<Ticket> tickets) {
+		this.tickets = tickets;
+	}
+
+	public Set<String> getRequestDeptSet() {
+		return requestDeptSet;
+	}
+
+	public void setRequestDeptSet(Set<String> requestDeptSet) {
+		this.requestDeptSet = requestDeptSet;
+	}
+
+	public Set<String> getPrioritySet() {
+		return prioritySet;
+	}
+
+	public void setPrioritySet(Set<String>prioritySet) {
+		this.prioritySet = prioritySet;
+	}
+
+	public String getStatus() {
+		return status;
+	}
+
+	public void setStatus(String status) {
+		this.status = status;
+	}
+
+	public Set<String> getRequestStatusSet() {
+		return requestStatusSet;
+	}
+
+	public void setRequestStatusSet(Set<String> requestStatusSet) {
+		this.requestStatusSet = requestStatusSet;
+	}	
+	
+}
+
+
+
+
+package org.rbfcu.projectview.bean;
+
+import java.io.Serializable;
+
+public class Ticket implements Serializable {
+
+	private static final long serialVersionUID = 7784796271843695206L;
+	private String ticketId;
+	private String summary;
+	private String requestStatus;
+	private String status;
+	private String standUpTime;
+	private String requestDept;
+	private String priority;
+	private String order;
+	private String lead;
+	private String ba;
+
+	public String getStatus() {
+		return status;
+	}
+
+	public void setStatus(String status) {
+		this.status = status;
+	}
+
+	public String getPriority() {
+		return priority;
+	}
+
+	public void setPriority(String prioritySet) {
+		this.priority = prioritySet;
+	}
+
+	public String getRequestDept() {
+		return requestDept;
+	}
+
+	public void setRequestDept(String requestDept) {
+		this.requestDept = requestDept;
+	}
+
+	public String getRequestStatus() {
+		return requestStatus;
+	}
+
+	public void setRequestStatus(String requestStatus) {
+		this.requestStatus = requestStatus;
+	}
+
+	public String getTicketId() {
+		return ticketId;
+	}
+
+	public String getStandUpTime() {
+		return standUpTime;
+	}
+
+	public void setStandUpTime(String standUpTime) {
+		this.standUpTime = standUpTime;
+	}
+
+	public void setTicketId(String ticketId) {
+		this.ticketId = ticketId;
+	}
+
+	public String getSummary() {
+		return summary;
+	}
+
+	public void setSummary(String summary) {
+		this.summary = summary;
+	}
+
+	public String getOrder() {
+		return order;
+	}
+
+	public void setOrder(String order) {
+		this.order = order;
+	}
+
+	public String getLead() {
+		return lead;
+	}
+
+	public void setLead(String lead) {
+		this.lead = lead;
+	}
+
+	public String getBa() {
+		return ba;
+	}
+
+	public void setBa(String ba) {
+		this.ba = ba;
+	}		
+}
+
+
+
+
+config
+
+
+package org.rbfcu.projectview.bean;
+
+import java.io.Serializable;
+
+public class Ticket implements Serializable {
+
+	private static final long serialVersionUID = 7784796271843695206L;
+	private String ticketId;
+	private String summary;
+	private String requestStatus;
+	private String status;
+	private String standUpTime;
+	private String requestDept;
+	private String priority;
+	private String order;
+	private String lead;
+	private String ba;
+
+	public String getStatus() {
+		return status;
+	}
+
+	public void setStatus(String status) {
+		this.status = status;
+	}
+
+	public String getPriority() {
+		return priority;
+	}
+
+	public void setPriority(String prioritySet) {
+		this.priority = prioritySet;
+	}
+
+	public String getRequestDept() {
+		return requestDept;
+	}
+
+	public void setRequestDept(String requestDept) {
+		this.requestDept = requestDept;
+	}
+
+	public String getRequestStatus() {
+		return requestStatus;
+	}
+
+	public void setRequestStatus(String requestStatus) {
+		this.requestStatus = requestStatus;
+	}
+
+	public String getTicketId() {
+		return ticketId;
+	}
+
+	public String getStandUpTime() {
+		return standUpTime;
+	}
+
+	public void setStandUpTime(String standUpTime) {
+		this.standUpTime = standUpTime;
+	}
+
+	public void setTicketId(String ticketId) {
+		this.ticketId = ticketId;
+	}
+
+	public String getSummary() {
+		return summary;
+	}
+
+	public void setSummary(String summary) {
+		this.summary = summary;
+	}
+
+	public String getOrder() {
+		return order;
+	}
+
+	public void setOrder(String order) {
+		this.order = order;
+	}
+
+	public String getLead() {
+		return lead;
+	}
+
+	public void setLead(String lead) {
+		this.lead = lead;
+	}
+
+	public String getBa() {
+		return ba;
+	}
+
+	public void setBa(String ba) {
+		this.ba = ba;
+	}		
+}
+
+
+
+controller
+
+
+package org.rbfcu.projectview.controller;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import javax.naming.AuthenticationException;
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.log4j.Logger;
+import org.json.JSONException;
+import org.json.simple.parser.ParseException;
+import org.rbfcu.projectview.bean.ProjectViewForm;
+import org.rbfcu.projectview.bean.Ticket;
+import org.rbfcu.projectview.service.JiraClientService;
+//import org.rbfcu.projectview.util.Ascending;
+import org.rbfcu.projectview.util.TicketChainedComparator;
+import org.rbfcu.projectview.util.TicketPrioritySetComparator;
+import org.rbfcu.projectview.util.TicketRequestDeptSetComparator;
+import org.rbfcu.projectview.util.TicketSourceTicketIdSetComparator;
+import org.rbfcu.projectview.util.TicketStandUpTimeComparator;
+//import org.rbfcu.projectview.util.TicketStatusComparator;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.ModelAndView;
+
+@Controller
+public class ProjectViewController {
+
+	final static Logger logger = Logger.getLogger(ProjectViewController.class);
+	private final static String ERR_MSG = "An error has occurred.  Please try again and contact the help desk if the problem persists.";
+	private static final String PROJECT_VIEW_FORM = "projectViewForm";
+
+	@Autowired
+	private JiraClientService jiraClientService;
+
+	@RequestMapping(value = "/", method = RequestMethod.GET)
+	public ModelAndView jiraHome(HttpServletRequest request) {
+		ModelAndView mv = new ModelAndView("projectView");
+		ProjectViewForm projectViewForm = null;
+		try {
+			projectViewForm = loadTicketDetails();
+			mv.addObject(PROJECT_VIEW_FORM, projectViewForm);
+		} catch (AuthenticationException e) {
+			logger.error("AuthenticationException @ show dash board :: ", e);
+			mv = new ModelAndView("error");
+			mv.addObject("errorMessage", ERR_MSG);
+		} catch (Exception e) {
+			logger.error("Exception Occured :: ", e);
+			mv = new ModelAndView("error");
+			mv.addObject("errorMessage", ERR_MSG);
+		}
+		return mv;
+	}
+
+	@RequestMapping(value = "/", method = { RequestMethod.POST })
+	public ModelAndView filtering(HttpServletRequest request, @RequestParam(required = false) String requestDept,
+			@RequestParam(required = false) String requestStatus, @RequestParam(required = false) String status) throws ParseException {
+		ModelAndView mv = new ModelAndView("projectView");
+		ProjectViewForm projectViewForm = null;
+		try {
+			if (logger.isDebugEnabled()) {
+				logger.debug(":: requestDept = " + requestDept + ":: requestStatus ::" + requestStatus + " :: status" + status);
+			}
+			projectViewForm = loadTicketDetails();
+			projectViewForm.setTickets(filterTicketsByInputValues(projectViewForm.getTickets(), requestDept, requestStatus, status));
+			mv.addObject(PROJECT_VIEW_FORM, projectViewForm);
+		} catch (AuthenticationException e) {
+			logger.error("AuthenticationException @ show dash board :: ", e);
+			mv = new ModelAndView("error");
+			mv.addObject("errorMessage", ERR_MSG);
+		} catch (Exception e) {
+			logger.error("Exception Occured :: ", e);
+			mv = new ModelAndView("error");
+			mv.addObject("errorMessage", ERR_MSG);
+		}
+		return mv;
+	}
+
+	@RequestMapping(value = "/tv", method = RequestMethod.GET)
+	public ModelAndView jiraHomeTv(HttpServletRequest request) {
+		ModelAndView mv = new ModelAndView("projectTvView");
+		ProjectViewForm projectViewForm = null;
+		try {
+			projectViewForm = loadTicketDetails();
+			mv.addObject(PROJECT_VIEW_FORM, projectViewForm);
+		} catch (AuthenticationException e) {
+			logger.error("AuthenticationException @ show dash board :: ", e);
+			mv = new ModelAndView("error");
+			mv.addObject("errorMessage", ERR_MSG);
+		} catch (Exception e) {
+			logger.error("Exception Occured :: ", e);
+			mv = new ModelAndView("error");
+			mv.addObject("errorMessage", ERR_MSG);
+		}
+		return mv;
+	}
+
+	@RequestMapping(value = "/tv", method = { RequestMethod.POST })
+	public ModelAndView filteringTvView(HttpServletRequest request, @RequestParam(required = false) String requestDept,
+			@RequestParam(required = false) String prioritySet, @RequestParam(required = false) String sourceTicketId,
+			@RequestParam(required = false) String status) throws ParseException {
+		ModelAndView mv = new ModelAndView("projectTvView");
+		ProjectViewForm projectViewForm = null;
+		try {
+
+			if (logger.isDebugEnabled()) {
+				logger.debug(":: requestDept = " + requestDept + " :: prioritySet =" + prioritySet + "::sourceTicketID = " + sourceTicketId
+						+ " :: status" + status);
+			}
+			projectViewForm = loadTicketDetails();
+			projectViewForm
+					.setTickets(filterTicketsByInputValuesTvView(projectViewForm.getTickets(), requestDept, prioritySet, sourceTicketId, status));
+			mv.addObject(PROJECT_VIEW_FORM, projectViewForm);
+		} catch (AuthenticationException e) {
+			logger.error("AuthenticationException @ show dash board :: ", e);
+			mv = new ModelAndView("error");
+			mv.addObject("errorMessage", ERR_MSG);
+		} catch (Exception e) {
+			logger.error("Exception Occured :: ", e);
+			mv = new ModelAndView("error");
+			mv.addObject("errorMessage", ERR_MSG);
+		}
+		return mv;
+	}
+
+	private List<Ticket> filterTicketsByInputValues(List<Ticket> sourceTickets, String requestDept, String requestStatus, String status) {
+		List<Ticket> targetTickets = new ArrayList<Ticket>();
+		for (Ticket ticket : sourceTickets) {
+			if (("".equals(requestDept) || requestDept.equalsIgnoreCase(ticket.getRequestDept()))
+					&& ("".equals(requestStatus) || requestStatus.equalsIgnoreCase(ticket.getRequestStatus()))
+					&& ("".equals(status) || status.equalsIgnoreCase(ticket.getStatus())))
+				targetTickets.add(ticket);
+		}
+		logger.debug("Total Ticket Count ::: " + targetTickets.size());
+		return targetTickets;
+	}
+
+	private List<Ticket> filterTicketsByInputValuesTvView(List<Ticket> sourceTickets, String requestDept, String prioritySet, String sourceTicketId,
+			String status) {
+		List<Ticket> targetTickets = new ArrayList<Ticket>();
+		for (Ticket ticket : sourceTickets) {
+			if ((StringUtils.isBlank(requestDept) || StringUtils.equalsIgnoreCase(requestDept, ticket.getRequestDept()))
+					&& (StringUtils.isBlank(prioritySet) || StringUtils.equalsIgnoreCase(prioritySet, ticket.getPriority()))
+					&& (StringUtils.isBlank(sourceTicketId) || StringUtils.equalsIgnoreCase(sourceTicketId, ticket.getTicketId()))) {
+				targetTickets.add(ticket);
+			}
+		}
+		logger.debug("Total Ticket Count ::: " + targetTickets.size());
+		return targetTickets;
+	}
+
+	/**
+	 * This methods sorts the tickets based on the ticket status and ticket key.
+	 * The primary sort is on Status, and the secondary sort is on the numerical key suffix (descending).  
+	 * Hence, This will show the newest open tickets first.
+	 * @param tickets
+	 */
+	//TODO make two separate lists of tickets for returning to the UI. Then each list will have their own sorting
+	private void sortTicketsByStatus(List<Ticket> tickets) {
+		Collections.sort(tickets, new TicketChainedComparator(new TicketStandUpTimeComparator(), new TicketPrioritySetComparator(),
+				new TicketRequestDeptSetComparator(), new TicketSourceTicketIdSetComparator()));
+	}
+
+	private ProjectViewForm loadTicketDetails() throws AuthenticationException, JSONException {
+		List<Ticket> sourceTickets = new ArrayList<Ticket>(jiraClientService.getProjectRequestIssues());
+		ProjectViewForm projectViewForm = new ProjectViewForm();
+		Set<String> requestDeptSet = new HashSet<String>();
+		Set<String> prioritySet = new HashSet<String>();
+		Set<String> sourceTicketIdSet = new HashSet<String>();
+		Set<String> requestStatusSet = new HashSet<String>();
+		if (!sourceTickets.isEmpty()) {
+			for (Ticket ticket : sourceTickets) {
+				if (ticket.getRequestDept() != null)
+					requestDeptSet.add(ticket.getRequestDept());
+				sourceTicketIdSet.add(ticket.getTicketId());
+				requestStatusSet.add(ticket.getRequestStatus());
+				if (StringUtils.isNotBlank(ticket.getPriority())) {
+					prioritySet.add(ticket.getPriority());
+				}
+			}
+			logger.debug("Total Ticket Count ::: " + sourceTickets.size());
+		}
+		sortTicketsByStatus(sourceTickets);
+		//displayTickets(sourceTickets);
+		projectViewForm.setTickets(sourceTickets);
+		projectViewForm.setRequestDeptSet(requestDeptSet);
+		projectViewForm.setSourceTicketIdSet(sourceTicketIdSet);
+		projectViewForm.setPrioritySet(prioritySet);
+		projectViewForm.setRequestStatusSet(requestStatusSet);
+		return projectViewForm;
+	}
+}
+
+
+
+
+
+
+
+package org.rbfcu.projectview.controller;
+
+import javax.naming.AuthenticationException;
+
+import org.apache.log4j.Logger;
+
+import com.sun.jersey.api.client.Client;
+import com.sun.jersey.api.client.ClientHandlerException;
+import com.sun.jersey.api.client.ClientResponse;
+import com.sun.jersey.api.client.WebResource;
+
+public class RestServiceUtility {
+
+	final static Logger logger = Logger.getLogger(RestServiceUtility.class);
+
+	public static String invokeGetMethod(String auth, String url) throws AuthenticationException, ClientHandlerException {
+
+		logger.debug("auth:-->" + auth);
+		logger.debug("url:-->" + url);
+
+		Client client = Client.create();
+		WebResource webResource = client.resource(url);
+		ClientResponse response =
+				webResource.header("Authorization", "Basic " + auth).type("application/json").accept("application/json").get(ClientResponse.class);
+		int statusCode = response.getStatus();
+		if (statusCode == 401) {
+			throw new AuthenticationException("Invalid Username or Password");
+		}
+		logger.debug("statusCode:-->" + statusCode);
+		return response.getEntity(String.class);
+	}
+}
+
+
+
+
+service
+
+
+package org.rbfcu.projectview.service;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.log4j.Logger;
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.rbfcu.projectview.bean.Ticket;
+
+public class IssueProcessHelper {
+	final static Logger logger = Logger.getLogger(IssueProcessHelper.class);
+
+	private static final String VALUE = "value";
+	private static final String NAME = "name";
+
+	public static Ticket copyAllFields(JSONObject fields, String[] names, Ticket ticket, String sourceKey, int issueCount, String env)
+			throws JSONException {
+
+		logger.debug("IssueProcessHelper::copyAllFields: Begin");
+
+		logger.debug("JSON Fields::" + fields);
+
+		ticket = copyStandardFields(fields, names, ticket, sourceKey, issueCount);
+
+		logger.debug("IssueProcessHelper::copyAllFields: End");
+
+		return ticket;
+	}
+
+	private static Ticket copyStandardFields(JSONObject fields, String[] fieldNames, Ticket ticket, String sourceKey, int a) throws JSONException {
+		logger.debug("IssueProcessHelper::copyStandardFields: Begin");
+
+		ticket = new Ticket();
+		ticket.setTicketId(sourceKey);
+		logger.debug(fieldNames.length);
+
+		for (int nameCount = 0; nameCount < fieldNames.length; nameCount++) {
+
+			if ("summary".equalsIgnoreCase(fieldNames[nameCount])) {
+
+				String summary = fields.getString(fieldNames[nameCount]);
+				if (!summary.equalsIgnoreCase("null")) {
+					ticket.setSummary(summary);
+
+				}
+			} else if ("status".equalsIgnoreCase(fieldNames[nameCount])) {
+
+				logger.debug("Requesting status:------->" + fields.getString(fieldNames[nameCount]));
+				ticket.setStatus(getFieldJsonObject(fields, fieldNames, nameCount, NAME));
+
+			} else if ("customfield_10411".equalsIgnoreCase(fieldNames[nameCount])) {
+				logger.debug("StandupTime:------->" + fields.getString(fieldNames[nameCount]));
+				if (StringUtils.isNoneBlank(fields.getString(fieldNames[nameCount]))) {
+					ticket.setStandUpTime(fields.getString(fieldNames[nameCount]));
+				}
+			} else if ("customfield_10112".equalsIgnoreCase(fieldNames[nameCount])) {
+
+				logger.debug("Requesting Department:------->" + fields.getString(fieldNames[nameCount]));
+				ticket.setRequestDept(getFieldJsonObject(fields, fieldNames, nameCount, VALUE));
+
+			} else if ("customfield_10125".equalsIgnoreCase(fieldNames[nameCount])) {
+
+				logger.debug("Order:------->" + fields.getString(fieldNames[nameCount]));
+				ticket.setOrder(getFieldJsonObject(fields, fieldNames, nameCount, VALUE));
+
+			} else if ("customfield_10120".equalsIgnoreCase(fieldNames[nameCount])) {
+
+				logger.debug("Request Status:::---------->" + fields.getString(fieldNames[nameCount]));
+				ticket.setRequestStatus(getFieldJsonObject(fields, fieldNames, nameCount, VALUE));
+
+			} else if ("customfield_10127".equalsIgnoreCase(fieldNames[nameCount])) {
+
+				logger.debug("BA:::---------->" + fields.getString(fieldNames[nameCount]));
+
+				ticket.setBa(getFieldJsonObject(fields, fieldNames, nameCount, NAME));
+
+			} else if ("customfield_10128".equalsIgnoreCase(fieldNames[nameCount])) {
+
+				logger.debug("Lead:::---------->" + fields.getString(fieldNames[nameCount]));
+
+				ticket.setLead(getFieldJsonObject(fields, fieldNames, nameCount, NAME));
+
+			} else if ("customfield_10113".equalsIgnoreCase(fieldNames[nameCount])) {
+				logger.debug("Requested Priority:::---------->" + fields.getString(fieldNames[nameCount]));
+				ticket.setPriority(getFieldJsonObject(fields, fieldNames, nameCount, VALUE));
+			}
+		}
+		logger.debug("IssueProcessHelper::copyStandardFields: End");
+		return ticket;
+	}
+
+	private static String getFieldJsonObject(JSONObject fields, String[] fieldNames, int nameCount, String value) throws JSONException {
+
+		String jObjectValue = null;
+		if (!fields.getString(fieldNames[nameCount]).equalsIgnoreCase("null")) {
+			JSONObject jObjects = new JSONObject(fields.getString(fieldNames[nameCount]));
+			jObjectValue = jObjects.getString(value);
+
+		}
+		return jObjectValue;
+	}
+
+}
+
+
+
+package org.rbfcu.projectview.service;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import javax.naming.AuthenticationException;
+
+import org.apache.log4j.Logger;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.rbfcu.projectview.bean.Ticket;
+import org.rbfcu.projectview.config.ProjectViewServiceConfig;
+import org.rbfcu.projectview.controller.RestServiceUtility;
+import org.springframework.stereotype.Service;
+
+import com.sun.jersey.core.util.Base64;
+
+@Service
+public class JiraClientService {
+
+	final static Logger logger = Logger.getLogger(JiraClientService.class);
+
+	private static final String KEY2 = "key";
+	private static String ENV = null;
+	private static final List<String> IGNORE_STATUS_LIST = Arrays.asList("Done");
+
+	public List<Ticket> getProjectRequestIssues() throws AuthenticationException, JSONException {
+
+		return getAllIssues(ProjectViewServiceConfig.getInstance().getValue("jira_jql_proj_req_list"));
+	}
+
+	public List<Ticket> getAllIssues(String jql)
+
+			throws AuthenticationException, JSONException {
+
+		JSONObject jObject = getAssociatedJiraIssue(jql);
+		JSONArray issues = jObject.getJSONArray("issues");
+
+		logger.debug("NEW jql:--------------------------------------------------------------->" + jql);
+
+		logger.debug("Length of the IN PROGRESS Tickets :--->" + issues.length());
+
+		List<Ticket> ticketList = new ArrayList<Ticket>();
+		Ticket ticket = null;
+
+		for (int i = 0; i < issues.length(); i++) {
+			JSONObject jsonObject = issues.getJSONObject(i);
+
+			String sourceKey = (String) jsonObject.get(KEY2);
+			logger.debug("SRC- Issue::-->" + sourceKey);
+
+			JSONObject fields = (JSONObject) jsonObject.get("fields");
+			String[] names = JSONObject.getNames(fields);
+				
+			ticket = IssueProcessHelper.copyAllFields(fields, names, ticket, sourceKey, issues.length(), ENV);
+				if (ticket != null && !IGNORE_STATUS_LIST.contains(ticket.getStatus()));
+					ticketList.add(ticket);
+		}
+		return ticketList;
+	}
+	private JSONObject getAssociatedJiraIssue(String jql) throws AuthenticationException, JSONException {
+		String tickets = getJiraDetailsByQuery(jql);
+		JSONObject jObject = new JSONObject(tickets);
+		return jObject;
+	}
+	private String getJiraDetailsByQuery(String jql) throws AuthenticationException {
+
+		String password = ProjectViewServiceConfig.getInstance().getValue("jira_password");
+		String username = ProjectViewServiceConfig.getInstance().getValue("jira_username");
+		String baseURL = ProjectViewServiceConfig.getInstance().getValue("jira_url");
+
+		String userCredientials = username + ":" + password;
+		String auth = new String(Base64.encode(userCredientials));
+		String issueType = RestServiceUtility.invokeGetMethod(auth, baseURL + jql);
+		return issueType;
+	}
+
+}
+
+
+
+
+
+
+
+util
+
+
+package org.rbfcu.projectview.util;
+
+import org.rbfcu.common.database.config.IDatabaseConfig;
+import org.rbfcu.config.servlet.BaseReloadConfigServlet;
+
+@SuppressWarnings("serial")
+public class ReloadConfigServlet extends BaseReloadConfigServlet {
+
+	private static final String JIRA_CONFIG_FILE_NAME = "application.config";
+	public ReloadConfigServlet() {
+		// TODO Auto-generated constructor stub
+	}
+	
+	protected IDatabaseConfig getDbConfig() {
+		return null;
+	}
+	
+	@Override
+	protected String getAppConfigFileName() {
+
+		return JIRA_CONFIG_FILE_NAME;
+	}
+
+}
+
+
+package org.rbfcu.projectview.util;
+
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+
+import org.rbfcu.projectview.bean.Ticket;
+ 
+public class TicketChainedComparator implements Comparator<Ticket> {
+ 
+    private List<Comparator<Ticket>> listComparators;
+ 
+    @SafeVarargs
+    public TicketChainedComparator(Comparator<Ticket>... comparators) {
+        this.listComparators = Arrays.asList(comparators);
+    }
+ 
+    @Override
+    public int compare(Ticket ticket1, Ticket ticket2) {
+        for (Comparator<Ticket> comparator : listComparators) {
+            int result = comparator.compare(ticket1, ticket2);
+            if (result != 0) {
+                return result;
+            }
+        }
+        return 0;
+    }
+}
+
+
+
+
+
+package org.rbfcu.projectview.util;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
+import org.rbfcu.projectview.bean.Ticket;
+
+public class TicketPrioritySetComparator implements Comparator<Ticket> {
+	static List<String> priorityList = new ArrayList<String>();
+	static {
+		priorityList.add("Urgent");
+		priorityList.add("High");
+		priorityList.add("Medium");
+		priorityList.add("Low");
+		priorityList.add("");
+	}
+
+	@Override
+	public int compare(Ticket ticket1, Ticket ticket2) {
+		return priorityList.indexOf((ticket1.getPriority() == null ? "" : ticket1.getPriority()))
+				- priorityList.indexOf((ticket2.getPriority() == null ? "" : ticket2.getPriority()));
+
+	}
+
+}
+
+
+
+
+
+
+
+package org.rbfcu.projectview.util;
+
+import java.util.Comparator;
+
+import org.rbfcu.projectview.bean.Ticket;
+
+public class TicketRequestDeptSetComparator implements Comparator<Ticket>{
+
+	@Override
+	public int compare(Ticket ticket1, Ticket ticket2) {
+		
+		String dept1 = ticket1.getRequestDept() == null ? "" : ticket1.getRequestDept(); 
+		String dept2 = ticket2.getRequestDept() == null ? "" : ticket2.getRequestDept(); 
+		
+		return  dept1.compareTo(dept2) ;
+	}
+
+}
+
+
+
+
+
+
+
+
+package org.rbfcu.projectview.util;
+
+import java.util.Comparator;
+
+import org.apache.commons.lang3.StringUtils;
+import org.rbfcu.projectview.bean.Ticket;
+
+public class TicketSourceTicketIdSetComparator implements Comparator<Ticket>{
+	@Override
+	public int compare(Ticket ticket1, Ticket ticket2) {		 
+		final String SEPARATOR = "-";
+		Integer key1 = Integer.parseInt(StringUtils.substringAfter(ticket1.getTicketId(), SEPARATOR));
+		Integer key2 = Integer.parseInt(StringUtils.substringAfter(ticket2.getTicketId(), SEPARATOR));
+		return key2.compareTo(key1);		 	 
+	}
+}
+
+
+
+
+
+package org.rbfcu.projectview.util;
+
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.GregorianCalendar;
+
+import org.apache.commons.lang3.StringUtils;
+import org.rbfcu.projectview.bean.Ticket;
+
+public class TicketStandUpTimeComparator implements Comparator<Ticket> {
+
+	@Override
+	public int compare(Ticket ticket1, Ticket ticket2) {
+		String time1 = ticket1.getStandUpTime();
+		String time2 = ticket2.getStandUpTime();
+		return convertStringToDate(time1).compareTo(convertStringToDate(time2));
+	}
+
+	private Date convertStringToDate(String standUpTime) {
+		DateFormat df = new SimpleDateFormat("HH:mm");
+		if (standUpTime == null || standUpTime.trim().length() == 0) {
+			return new Date();
+		} else {
+			try {
+				return addDay(df.parse(standUpTime), standUpTime);
+			} catch (ParseException e) {
+				return new Date();
+			}
+		}
+	}
+
+	private Date addDay(Date date, String standUpTime) {
+		int standupTimeHour= Integer.parseInt(StringUtils.substringBefore(standUpTime, ":"));
+		GregorianCalendar cal = new GregorianCalendar();
+		if (standupTimeHour >= 8 && standupTimeHour < 12) {
+			return date;
+		} else {
+			cal.setTime(date);
+			cal.add(Calendar.DATE, 1);
+			return cal.getTime();
+		}
+	}
+}
+
+
+
+
+
+
+
+
+
+
+package org.rbfcu.projectview.util;
+
+import java.util.Comparator;
+
+import org.rbfcu.projectview.bean.Ticket;
+
+public class TicketStatusComparator implements Comparator<Ticket> {
+
+	@Override
+	public int compare(Ticket ticket1, Ticket ticket2) {
+		return ticket1.getStatus().compareTo(ticket2.getStatus());
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+views
+
+
+
+
+erro.jsp
+
+
+
+  <%@ page language="java" contentType="text/html; charset=ISO-8859-1" pageEncoding="ISO-8859-1"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+<html>
+
+<head>
+    <title>Project view Error Page</title>
+</head>
+<body>
+    <strong>Error Occured</strong> <br/>
+    <h4>Error Info ::: </h4> <br/> <c:out value="${errorMessage}" />
+</body>
+</html>
+
+ projecttv
+ 
+ 
+ 
+ <%@ page language="java" contentType="text/html; charset=ISO-8859-1" pageEncoding="ISO-8859-1"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt"%>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form"%>
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<link href="/ProjectView/resources/bootstrap.min.css" rel="stylesheet">
+<link href="/ProjectView/resources/jquery.dataTables.min.css" rel="stylesheet">
+<link href="/ProjectView/resources/jquery-ui.css" rel="stylesheet">
+<link href="/ProjectView/resources/Features.css" rel="stylesheet">
+<script src="/ProjectView/resources/jquery-2.1.1.min.js"></script>
+<script src="/ProjectView/resources/jquery-ui.js"></script>
+<script src="/ProjectView/resources/jquery.dataTables.min.js"></script>
+<script src="/ProjectView/resources/bootstrap.min.js"></script>
+<script type="text/javascript" src="/ProjectView/resources/projecttvview.js${asset_id}"></script>
+<title>Project View</title>
+</head>
+<body style="position: relative; margin-top: 0em">
+    <h1 class=projecttvviewheader>Project View</h1>
+    <form method="POST" action="<%=request.getContextPath()%>/tv">
+        <table class="no border">
+            <tr>
+                <td colspan="3" style="padding-bottom: 1em;"><select id="prioritySet" class="projecttvviewSelect" name="prioritySet">
+                        <option value="" label="Requested Priority">Requested Priority</option>
+                        <c:forEach var="item" items="${projectViewForm.prioritySet}">
+                            <option value="${item}">${item}</option>
+                        </c:forEach>
+                </select> <select id="requestDept" class="projecttvviewSelect" name="requestDept">
+                        <option value="" label="Requested Department">Requested Department</option>
+                        <c:forEach var="item" items="${projectViewForm.requestDeptSet}">
+                            <option value="${item}">${item}</option>
+                        </c:forEach>
+                </select>
+                    <button class="btn round" type="submit">Filter</button> <span
+                    style="float: right; background-color: rgb(0, 52, 116); color: white; padding: 0px 15px;"
+                > </span></td>
+            </tr>
+            <tr>
+                <td style="vertical-align: top; padding-top: 0.1em;"><c:set var="TO PROGRESS" value="${ticket.status}" /> <input type="hidden"
+                    value="status">
+                    <h4>
+                        <b>In Progress</b>
+                    </h4>
+                    <table style="border: 1px solid grey" id="dashboard2" align="left" class="table table-striped table-bordered" cellspacing="0"
+                        cellpadding="0" width="100%" bordercolor="00FF00">
+                        <thead>
+                            <tr>
+                                <th>PR</th>
+                                <th>Title</th>
+                                <th>Department</th>
+                                <th>Stand-up Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <c:forEach items="${projectViewForm.tickets}" var="ticket" varStatus="status">
+                                <c:if test="${ticket.status eq 'In Progress'}">
+                                    <tr>
+                                        <td>${ticket.ticketId}</td>
+                                        <td>${ticket.summary}</td>
+                                        <td><c:if test="${ticket.requestDept ne ''}"> ${ticket.requestDept}</c:if></td>
+                                        <td><c:if test="${ticket.standUpTime ne 'null'}"> ${ticket.standUpTime}</c:if></td>
+                                    </tr>
+                                </c:if>
+                            </c:forEach>
+                        </tbody>
+                    </table></td>
+                <td style="padding: 0.3em;"></td>
+                <td style="vertical-align: top; padding-top: 0.1em;"><c:set var="TO DO" value="${ticket.status}" /> 
+                <input type="hidden" value="status">
+                    <h4>
+                        <b>Pending</b>
+                    </h4>
+                    <table style="border: 1px solid grey" id="dashboard" align="right" class="table table-striped table-bordered" cellspacing="0"
+                        cellpadding="0"  bordercolor="00FF00">
+                        <thead>
+                            <tr>
+                                <th>PR</th>
+                                <th>Title</th>
+                                <th>Department</th>
+                                <th>Requested Priority</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <c:forEach items="${projectViewForm.tickets}" var="ticket" varStatus="status">
+                                <c:if test="${ticket.status eq 'To Do'}">
+                                    <tr>
+                                        <td>${ticket.ticketId}</td>
+                                        <td>${ticket.summary}</td>
+                                        <td>${ticket.requestDept}</td>
+                                        <td>${ticket.priority}</td>
+                                    </tr>
+                                </c:if>
+                            </c:forEach>
+                        </tbody>
+                    </table></td>
+            </tr>
+        </table>
+    </form>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+projectview.jsp
+
+
+<%@ page language="java" contentType="text/html; charset=ISO-8859-1" pageEncoding="ISO-8859-1"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt"%>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form"%>
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<link href="/ProjectView/resources/bootstrap.min.css" rel="stylesheet">
+<link href="/ProjectView/resources/jquery.dataTables.min.css" rel="stylesheet">
+<link href="/ProjectView/resources/jquery-ui.css" rel="stylesheet">
+<link href="/ProjectView/resources/Features.css" rel="stylesheet">
+<script src="/ProjectView/resources/jquery-2.1.1.min.js"></script>
+<script src="/ProjectView/resources/jquery-ui.js"></script>
+<script src="/ProjectView/resources/jquery.dataTables.min.js"></script>
+<script src="/ProjectView/resources/bootstrap.min.js"></script>
+<script type="text/javascript" src="/ProjectView/resources/projectview.js${asset_id}"></script>
+<title>ProjectView</title>
+</head>
+<body>
+    <h1 class="projectviewheader">Project View</h1>
+    <form method="POST" action="<%=request.getContextPath()%>/">
+        <table>
+            <tr>
+                <td><select id="status" class="projectviewSelect" name="status">
+                        <option value="" label="Select Status">Status</option>
+                        <option value="IN PROGRESS">IN PROGRESS</option>
+                        <option value="TO DO">To DO</option>
+                </select></td>
+                <td><select id="requestDept" class="projectviewSelect" name="requestDept">
+                        <option value="" label="Select Request Dept">Requesting Department</option>
+                        <c:forEach var="item" items="${projectViewForm.requestDeptSet}">
+                            <option value="${item}">${item}</option>
+                        </c:forEach>
+                </select></td>
+                <td><select id="requestStatus" class="projectviewSelect" name="requestStatus">
+                        <option value="" label="Select Status">Request Status</option>
+                        <c:forEach var="item" items="${projectViewForm.requestStatusSet}">
+                            <option value="${item}">${item}</option>
+                        </c:forEach>
+                </select></td>
+                <td>
+                    <button class="btn round" input type="submit" style="margin-bottom: -39px;">Filter</button>
+                </td>
+            </tr>
+        </table>
+    </form>
+    <br />
+    <table style="border: 1px solid grey" id="dashboard" class="table table-striped table-bordered" cellspacing="0" cellpadding="0" width="92%"
+        bordercolor="00FF00"
+    >
+        <thead>
+            <tr>
+                <th>Key</th>
+                <th>Summary</th>
+                <th>Requesting Department</th>
+                <th>Request Status</th>
+                <th>Order</th>
+                <th>Status</th>
+                <th>BA</th>
+                <th>Lead</th>
+            </tr>
+        </thead>
+        <tbody>
+            <c:forEach items="${projectViewForm.tickets}" var="ticket" varStatus="status">
+                <tr>
+                    <td>${ticket.ticketId}
+                    <td>${ticket.summary}</td>
+                    <td>${ticket.requestDept}</td>
+                    <td>${ticket.requestStatus}</td>
+                    <td>${ticket.order}</td>
+                    <td>${ticket.status}</td>
+                    <td>${ticket.ba}</td>
+                    <td>${ticket.lead}</td>
+                </tr>
+            </c:forEach>
+        </tbody>
+    </table>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+dispatcher-servlet.xml
+
+<?xml version="1.0"?>
+<beans xsi:schemaLocation="http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-3.0.xsd http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.0.xsd" xmlns:mvc="http://www.springframework.org/schema/mvc" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context" xmlns="http://www.springframework.org/schema/beans">
+		<!-- Enables the Spring MVC @Controller programming model -->
+	<mvc:annotation-driven/>
+	<context:component-scan base-package="org.rbfcu.projectview.controller, org.rbfcu.projectview.service"/>
+		<!-- Handles HTTP GET requests for /resources/** by efficiently serving up static resources in the ${webappRoot}/resources directory -->
+	<mvc:resources location="/resources/" mapping="/resources/**"/>
+	<bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+		<property name="prefix">
+			<value>/WEB-INF/views/</value>
+		</property>
+		<property name="suffix">
+			<value>.jsp</value>
+		</property>
+	</bean>
+</beans>
+
+
+
+web.xml
+
+
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://java.sun.com/xml/ns/javaee" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd" id="WebApp_ID" version="3.0">
+  
+ 
+	<display-name>ProjectView</display-name>
+	
+	
+	<servlet>
+		<servlet-name>reloader_srv</servlet-name>
+		<servlet-class>org.rbfcu.projectview.util.ReloadConfigServlet</servlet-class>
+		<load-on-startup>1</load-on-startup>
+	</servlet>
+	
+	
+	<servlet-mapping>
+		<servlet-name>reloader_srv</servlet-name>
+		<url-pattern>/reloadConfig</url-pattern>
+	</servlet-mapping>
+
+	<servlet>
+		<servlet-name>dispatcher</servlet-name>
+		<servlet-class>
+			org.springframework.web.servlet.DispatcherServlet
+		</servlet-class>
+		<load-on-startup>2</load-on-startup>
+	</servlet>
+
+	<servlet-mapping>
+		<servlet-name>dispatcher</servlet-name>
+		<url-pattern>/</url-pattern>
+	</servlet-mapping>
+
+	<context-param>
+		<param-name>contextConfigLocation</param-name>
+		<param-value>/WEB-INF/dispatcher-servlet.xml</param-value>
+	</context-param>
+
+	<listener>
+		<listener-class>
+			org.springframework.web.context.ContextLoaderListener
+		</listener-class>
+	</listener>
+</web-app>
+
+
+
+
+
+
+
+
+
+
+
+ibm-web
+
+
+
+<?xml version="1.0" encoding="UTF-8"?>
+<web-ext
+	xmlns="http://websphere.ibm.com/xml/ns/javaee"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://websphere.ibm.com/xml/ns/javaee http://websphere.ibm.com/xml/ns/javaee/ibm-web-ext_1_1.xsd"
+	version="1.1">
+	<reload-interval value="3"/>
+	<context-root uri="ProjectView" />
+	<enable-directory-browsing value="false"/>
+	<enable-file-serving value="false"/>
+	<enable-reloading value="true"/>
+	<enable-serving-servlets-by-class-name value="false" />
+</web-ext>
+
+
+
+
+
+
+
+
+
+
+
+
+
+pom.xml
+
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>org.rbfcu.web</groupId>
+	<artifactId>project-view</artifactId>
+	<version>0.0.0-SNAPSHOT</version>
+	<packaging>war</packaging>
+
+	<dependencies>
+		<dependency>
+			<groupId>javax.servlet</groupId>
+			<artifactId>servlet-api</artifactId>
+			<version>2.5</version>
+			<scope>provided</scope>
+		</dependency>
+
+		<!-- Spring dependencies -->
+		<dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-core</artifactId>
+			<version>4.3.3.RELEASE</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-web</artifactId>
+			<version>4.3.3.RELEASE</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-webmvc</artifactId>
+			<version>4.3.3.RELEASE</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.rbfcu.master</groupId>
+			<artifactId>configuration-util</artifactId>
+			<version>0.9.0-SNAPSHOT</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.rbfcu.master</groupId>
+			<artifactId>common-lib</artifactId>
+			<version>0.11.0</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.rbfcu.master</groupId>
+			<artifactId>data-access</artifactId>
+			<version>0.10.0</version>
+		</dependency>
+
+		<!-- Rest Client Dependencies -->
+		<dependency>
+			<groupId>com.sun.jersey</groupId>
+			<artifactId>jersey-client</artifactId>
+			<version>1.9.1</version>
+		</dependency>
+
+		<dependency>
+			<groupId>com.sun.jersey</groupId>
+			<artifactId>jersey-core</artifactId>
+			<version>1.9.1</version>
+		</dependency>
+
+		<dependency>
+			<groupId>com.googlecode.json-simple</groupId>
+			<artifactId>json-simple</artifactId>
+			<version>1.1</version>
+		</dependency>
+		<dependency>
+			<groupId>com.ibm.websphere.j2ee</groupId>
+			<artifactId>j2ee</artifactId>
+			<version>8.5.5-FixPack-01</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>javax.servlet</groupId>
+			<artifactId>jstl</artifactId>
+			<version>1.2</version>
+			<scope>provided</scope>
+		</dependency>		
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+			<version>3.5</version>
+		</dependency>
+		<dependency>
+			<groupId>org.json</groupId>
+			<artifactId>json</artifactId>
+			<version>20090211</version>
+		</dependency>
+
+	</dependencies>
+
+</project>
+
+
+
+
+
+
+
+
+
+
+
+
+build.xml
+
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE project>
+<project name="ProjectView" basedir=".">
+	<description>Allows non IT to watch the status of their projects </description>
+	
+	<!-- set up base build properties -->
+	<property environment="env" />
+	<property name="dir.javatools" value="${env.GIT_JT_HOME}" />
+	<property name="dir.buildscripts" value="${dir.javatools}/build_tools/scripts" />
+	
+	<import file="${dir.buildscripts}/build.spring.xml"/>
+</project>
+
+
+
+
+
+
+
+
+
+
+application-config
+
+jira_jql_proj_req_list=/rest/api/2/search?jql=project%3DPR&expand=projects.issuetypes.fields&fields=id,summary,description,status,reporter,assignee,customfield_10112,customfield_10120,customfield_10123,customfield_10125,customfield_10411,customfield_10113,customfield_10127,customfield_10128,customfield_10129&status=REPLACE&startAt=0&maxResults=300
+jira_password=5ac2f73b2eb25f9ca9d57
+jira_username=project-admin
+jira_url=https://jira.rbfcu.org
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
