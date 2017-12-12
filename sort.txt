@@ -1,0 +1,423 @@
+controller
+
+package org.rbfcu.projectview.controller;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import javax.naming.AuthenticationException;
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.log4j.Logger;
+import org.json.JSONException;
+import org.json.simple.parser.ParseException;
+import org.rbfcu.projectview.bean.ProjectViewForm;
+import org.rbfcu.projectview.bean.Ticket;
+import org.rbfcu.projectview.service.JiraClientService;
+//import org.rbfcu.projectview.util.Ascending;
+import org.rbfcu.projectview.util.TicketChainedComparator;
+import org.rbfcu.projectview.util.TicketPrioritySetComparator;
+import org.rbfcu.projectview.util.TicketRequestDeptSetComparator;
+import org.rbfcu.projectview.util.TicketSourceTicketIdSetComparator;
+import org.rbfcu.projectview.util.TicketStandUpTimeComparator;
+//import org.rbfcu.projectview.util.TicketStatusComparator;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.ModelAndView;
+
+@Controller
+public class ProjectViewController {
+
+	final static Logger logger = Logger.getLogger(ProjectViewController.class);
+	private final static String ERR_MSG = "An error has occurred.  Please try again and contact the help desk if the problem persists.";
+	private static final String PROJECT_VIEW_FORM = "projectViewForm";
+
+	@Autowired
+	private JiraClientService jiraClientService;
+
+	@RequestMapping(value = "/webteam", method = RequestMethod.GET)
+	public ModelAndView jiraHome(HttpServletRequest request) {
+		ModelAndView mv = new ModelAndView("projectView");
+		ProjectViewForm projectViewForm = null;
+		try {
+			projectViewForm = loadTicketDetails();
+			mv.addObject(PROJECT_VIEW_FORM, projectViewForm);
+		} catch (AuthenticationException e) {
+			logger.error("AuthenticationException @ show dash board :: ", e);
+			mv = new ModelAndView("error");
+			mv.addObject("errorMessage", ERR_MSG);
+		} catch (Exception e) {
+			logger.error("Exception Occured :: ", e);
+			mv = new ModelAndView("error");
+			mv.addObject("errorMessage", ERR_MSG);
+		}
+		return mv;
+	}
+
+	@RequestMapping(value = "/webteam", method = { RequestMethod.POST })
+	public ModelAndView filtering(HttpServletRequest request, @RequestParam(required = false) String requestDept,
+			@RequestParam(required = false) String requestStatus, @RequestParam(required = false) String status) throws ParseException {
+		ModelAndView mv = new ModelAndView("projectView");
+		ProjectViewForm projectViewForm = null;
+		try {
+			if (logger.isDebugEnabled()) {
+				logger.debug(":: requestDept = " + requestDept + ":: requestStatus ::" + requestStatus + " :: status" + status);
+			}
+			projectViewForm = loadTicketDetails();
+			projectViewForm.setTickets(filterTicketsByInputValues(projectViewForm.getTickets(), requestDept, requestStatus, status));
+			mv.addObject(PROJECT_VIEW_FORM, projectViewForm);
+		} catch (AuthenticationException e) {
+			logger.error("AuthenticationException @ show dash board :: ", e);
+			mv = new ModelAndView("error");
+			mv.addObject("errorMessage", ERR_MSG);
+		} catch (Exception e) {
+			logger.error("Exception Occured :: ", e);
+			mv = new ModelAndView("error");
+			mv.addObject("errorMessage", ERR_MSG);
+		}
+		return mv;
+	}
+
+	@RequestMapping(value = "/", method = RequestMethod.GET)
+	public ModelAndView jiraHomeTv(HttpServletRequest request) {
+		ModelAndView mv = new ModelAndView("projectTvView");
+		ProjectViewForm projectViewForm = null;
+		try {
+			projectViewForm = loadTicketDetails();
+			mv.addObject(PROJECT_VIEW_FORM, projectViewForm);
+		} catch (AuthenticationException e) {
+			logger.error("AuthenticationException @ show dash board :: ", e);
+			mv = new ModelAndView("error");
+			mv.addObject("errorMessage", ERR_MSG);
+		} catch (Exception e) {
+			logger.error("Exception Occured :: ", e);
+			mv = new ModelAndView("error");
+			mv.addObject("errorMessage", ERR_MSG);
+		}
+		return mv;
+	}
+
+	@RequestMapping(value = "/", method = { RequestMethod.POST })
+	public ModelAndView filteringTvView(HttpServletRequest request, @RequestParam(required = false) String requestDept,
+			@RequestParam(required = false) String prioritySet, @RequestParam(required = false) String sourceTicketId,
+			@RequestParam(required = false) String status) throws ParseException {
+		ModelAndView mv = new ModelAndView("projectTvView");
+		ProjectViewForm projectViewForm = null;
+		try {
+
+			if (logger.isDebugEnabled()) {
+				logger.debug(":: requestDept = " + requestDept + " :: prioritySet =" + prioritySet + "::sourceTicketID = " + sourceTicketId
+						+ " :: status" + status);
+			}
+			projectViewForm = loadTicketDetails();
+			projectViewForm
+					.setTickets(filterTicketsByInputValuesTvView(projectViewForm.getTickets(), requestDept, prioritySet, sourceTicketId, status));
+			mv.addObject(PROJECT_VIEW_FORM, projectViewForm);
+		} catch (AuthenticationException e) {
+			logger.error("AuthenticationException @ show dash board :: ", e);
+			mv = new ModelAndView("error");
+			mv.addObject("errorMessage", ERR_MSG);
+		} catch (Exception e) {
+			logger.error("Exception Occured :: ", e);
+			mv = new ModelAndView("error");
+			mv.addObject("errorMessage", ERR_MSG);
+		}
+		return mv;
+	}
+
+	@RequestMapping(value = "/ir", method = RequestMethod.GET)
+	public ModelAndView jiraHomeIr(HttpServletRequest request) {
+		ModelAndView mv = new ModelAndView("irView");
+		ProjectViewForm projectViewForm = null;
+		try {
+			projectViewForm = loadTicketDetails();
+			mv.addObject(PROJECT_VIEW_FORM, projectViewForm);
+		} catch (AuthenticationException e) {
+			logger.error("AuthenticationException @ show dash board :: ", e);
+			mv = new ModelAndView("error");
+			mv.addObject("errorMessage", ERR_MSG);
+		} catch (Exception e) {
+			logger.error("Exception Occured :: ", e);
+			mv = new ModelAndView("error");
+			mv.addObject("errorMessage", ERR_MSG);
+		}
+		return mv;
+	}
+
+	private List<Ticket> filterTicketsByInputValues(List<Ticket> sourceTickets, String requestDept, String requestStatus, String status) {
+		List<Ticket> targetTickets = new ArrayList<Ticket>();
+		for (Ticket ticket : sourceTickets) {
+			if (("".equals(requestDept) || requestDept.equalsIgnoreCase(ticket.getRequestDept()))
+					&& ("".equals(requestStatus) || requestStatus.equalsIgnoreCase(ticket.getRequestStatus()))
+					&& ("".equals(status) || status.equalsIgnoreCase(ticket.getStatus())))
+				targetTickets.add(ticket);
+		}
+		logger.debug("Total Ticket Count ::: " + targetTickets.size());
+		return targetTickets;
+	}
+
+	private List<Ticket> filterTicketsByInputValuesTvView(List<Ticket> sourceTickets, String requestDept, String prioritySet, String sourceTicketId,
+			String status) {
+		List<Ticket> targetTickets = new ArrayList<Ticket>();
+		for (Ticket ticket : sourceTickets) {
+			if ((StringUtils.isBlank(requestDept) || StringUtils.equalsIgnoreCase(requestDept, ticket.getRequestDept()))
+					&& (StringUtils.isBlank(prioritySet) || StringUtils.equalsIgnoreCase(prioritySet, ticket.getPriority()))
+					&& (StringUtils.isBlank(sourceTicketId) || StringUtils.equalsIgnoreCase(sourceTicketId, ticket.getTicketId()))) {
+				targetTickets.add(ticket);
+			}
+		}
+		logger.debug("Total Ticket Count ::: " + targetTickets.size());
+		return targetTickets;
+	}
+
+	/**
+	 * This methods sorts the tickets based on the ticket status and ticket key.
+	 * The primary sort is on Status, and the secondary sort is on the numerical key suffix (descending).  
+	 * Hence, This will show the newest open tickets first.
+	 * @param tickets
+	 */
+	//TODO make two separate lists of tickets for returning to the UI. Then each list will have their own sorting
+	private void sortTicketsByStatus(List<Ticket> tickets) {
+		Collections.sort(tickets, new TicketChainedComparator(new TicketStandUpTimeComparator(), new TicketPrioritySetComparator(),
+				new TicketRequestDeptSetComparator(), new TicketSourceTicketIdSetComparator()));
+	}
+
+	private ProjectViewForm loadTicketDetails() throws AuthenticationException, JSONException {
+		List<Ticket> sourceTickets = new ArrayList<Ticket>(jiraClientService.getProjectRequestIssues());
+		ProjectViewForm projectViewForm = new ProjectViewForm();
+		Set<String> requestDeptSet = new HashSet<String>();
+		Set<String> prioritySet = new HashSet<String>();
+		Set<String> sourceTicketIdSet = new HashSet<String>();
+		Set<String> requestStatusSet = new HashSet<String>();
+		if (!sourceTickets.isEmpty()) {
+			for (Ticket ticket : sourceTickets) {
+				if (ticket.getRequestDept() != null)
+					requestDeptSet.add(ticket.getRequestDept());
+				sourceTicketIdSet.add(ticket.getTicketId());
+				requestStatusSet.add(ticket.getRequestStatus());
+				if (StringUtils.isNotBlank(ticket.getPriority())) {
+					prioritySet.add(ticket.getPriority());
+				}
+			}
+			logger.debug("Total Ticket Count ::: " + sourceTickets.size());
+		}
+		sortTicketsByStatus(sourceTickets);
+		//displayTickets(sourceTickets);
+		projectViewForm.setTickets(sourceTickets);
+		projectViewForm.setRequestDeptSet(requestDeptSet);
+		projectViewForm.setSourceTicketIdSet(sourceTicketIdSet);
+		projectViewForm.setPrioritySet(prioritySet);
+		projectViewForm.setRequestStatusSet(requestStatusSet);
+		return projectViewForm;
+	}
+}
+
+
+
+projectviewjsp
+
+<%@ page language="java" contentType="text/html; charset=ISO-8859-1" pageEncoding="ISO-8859-1"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt"%>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form"%>
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<link href="/ProjectView/resources/bootstrap.min.css" rel="stylesheet">
+<link href="/ProjectView/resources/jquery.dataTables.min.css" rel="stylesheet">
+<link href="/ProjectView/resources/jquery-ui.css" rel="stylesheet">
+<link href="/ProjectView/resources/Features.css" rel="stylesheet">
+<script src="/ProjectView/resources/jquery-2.1.1.min.js"></script>
+<script src="/ProjectView/resources/jquery-ui.js"></script>
+<script src="/ProjectView/resources/jquery.dataTables.min.js"></script>
+<script src="/ProjectView/resources/bootstrap.min.js"></script>
+<script type="text/javascript" src="/ProjectView/resources/projecttvview.js${asset_id}"></script>
+<title>Project View</title>
+</head>
+<body style="position: relative; margin-top: 0em">
+    <h1 class=projecttvviewheader>Project View</h1>
+    <form method="POST" action="<%=request.getContextPath()%>">
+        <table class="no border">
+            <tr>
+                <td colspan="3" style="padding-bottom: 1em;"><select id="prioritySet" class="projecttvviewSelect" name="prioritySet">
+                        <option value="" label="Requested Priority">Requested Priority</option>
+                        <c:forEach var="item" items="${projectViewForm.prioritySet}">
+                            <option value="${item}">${item}</option>
+                        </c:forEach>
+                </select> <select id="requestDept" class="projecttvviewSelect" name="requestDept">
+                        <option value="" label="Requested Department">Requested Department</option>
+                        <c:forEach var="item" items="${projectViewForm.requestDeptSet}">
+                            <option value="${item}">${item}</option>
+                        </c:forEach>
+                </select>
+                    <button class="btn round" type="submit">Filter</button> <span
+                    style="float: right; background-color: rgb(0, 52, 116); color: white; padding: 0px 15px;"
+                > </span></td>
+            </tr>
+            <tr>
+                <td style="vertical-align: top; padding-top: 0.1em;"><c:set var="TO PROGRESS" value="${ticket.status}" /> <input type="hidden"
+                    value="status">
+                    <h4>
+                        <b>In Progress</b>
+                    </h4>
+                    <table style="border: 1px solid grey" id="dashboard2" align="left" class="table table-striped table-bordered" cellspacing="0"
+                        cellpadding="0" width="100%" bordercolor="00FF00">
+                        <thead>
+                            <tr>
+                                <th>PR</th>
+                                <th>Title</th>
+                                <th>Department</th>
+                                <th>Stand-up Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <c:forEach items="${projectViewForm.tickets}" var="ticket" varStatus="status">
+                                <c:if test="${ticket.status eq 'In Progress'}">
+                                    <tr>
+                                        <td>${ticket.ticketId}</td>
+                                        <td>${ticket.summary}</td>
+                                        <td><c:if test="${ticket.requestDept ne ''}"> ${ticket.requestDept}</c:if></td>
+                                        <td><c:if test="${ticket.standUpTime ne 'null'}"> ${ticket.standUpTime}</c:if></td>
+                                    </tr>
+                                </c:if>
+                            </c:forEach>
+                        </tbody>
+                    </table></td>
+                <td style="padding: 0.3em;"></td>
+                <td style="vertical-align: top; padding-top: 0.1em;"><c:set var="TO DO" value="${ticket.status}" /> 
+                <input type="hidden" value="status">
+                    <h4>
+                        <b>Pending</b>
+                    </h4>
+                    <table style="border: 1px solid grey" id="dashboard" align="right" class="table table-striped table-bordered" cellspacing="0"
+                        cellpadding="0"  bordercolor="00FF00">
+                        <thead>
+                            <tr>
+                                <th>PR</th>
+                                <th>Title</th>
+                                <th>Department</th>
+                                <th>Requested Priority</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <c:forEach items="${projectViewForm.tickets}" var="ticket" varStatus="status">
+                                <c:if test="${ticket.status eq 'To Do'}">
+                                    <tr>
+                                        <td>${ticket.ticketId}</td>
+                                        <td>${ticket.summary}</td>
+                                        <td>${ticket.requestDept}</td>
+                                        <td>${ticket.priority}</td>
+                                    </tr>
+                                </c:if>
+                            </c:forEach>
+                        </tbody>
+                    </table></td>
+            </tr>
+        </table>
+    </form>
+</html>
+
+
+projectview.js
+
+
+$(document).ready(function() {
+		$('#dashboard').DataTable({
+			"lengthMenu" : [ [ 25, 50, 75, -1 ], [ 25, 50, 75, "All" ] ],
+			"pageLength" : 200,
+			"aaSorting" : [ [ 5, "desc" ] ]
+			/*"order" : [ [ 3, 'desc' ], [ 0, 'asc' ] ],
+			"aoColumns" : [ null, null, null, {
+				"sType" : "priority",
+				"bSortable" : true
+			} ],*/
+		});
+
+		$('#dashboard2').DataTable({
+			"lengthMenu" : [ [ 25, 50, 75, -1 ], [ 25, 50, 75, "All" ] ],
+			"pageLength" : 50,
+			"order" : [ [ 3, 'asc' ] ],
+			columnDefs : [ {
+				"type" : "non-empty-string",
+				targets : [ 2 ],
+				"bSortable" : true
+			} ],
+
+			"aoColumns" : [ null, null, {
+				"bSortable" : true,
+			},
+
+			{
+				"sType" : "nullable",
+				"bSortable" : true,
+			} ]
+
+		});
+
+		$('#dashboard2_length').hide();
+		$('#dashboard_length').hide();
+		$('#dashboard_paginate').hide();
+		$('#dashboard_info').hide();
+		$('#dashboard2_paginate').hide();
+		$('#dashboard2_info').hide();
+		//	sortTable($('#dashboard2'),'desc')
+		$('#dashboard').DataTable().order([ 0, 'desc' ]).sort();
+		$('#dashboard2').DataTable().order([ 0, 'desc' ]).sort();
+	});
+
+	function getPriority(name) {
+
+		var rankNumber;
+
+		if (name == "Urgent") {
+			rankNumber = 4;
+		} else if (name == "High") {
+			rankNumber = 3;
+		} else if (name == "Medium") {
+			rankNumber = 2;
+		} else if (name == "Low") {
+			rankNumber = 1;
+		} else {
+			rankNumber = 0;
+		}
+
+		return rankNumber;
+	}
+
+	jQuery.fn.dataTableExt.oSort["priority-desc"] = function(x, y) {
+		return getPriority(x) < getPriority(y);
+	};
+
+	jQuery.fn.dataTableExt.oSort["priority-asc"] = function(x, y) {
+		return getPriority(x) > getPriority(y);
+	}
+
+	$.fn.dataTableExt.oSort['nullable-asc'] = function(a, b) {
+		if (a == '')
+			return 1;
+		else if (b == '')
+			return -1;
+		else {
+			var ia = parseInt(a);
+			var ib = parseInt(b);
+			return (ia < ib) ? -1 : ((ia > ib) ? 1 : 0);
+		}
+	}
+	
+	
+	
+	
+	
+	
+	
+	
