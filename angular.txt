@@ -1,0 +1,672 @@
+import { Component, OnInit } from '@angular/core';
+ 
+import { ApiService, LookupService, GuestTypeService, LeadSourceService } from '../../../services/index';
+import { Rate, LeadSourceData } from '../../../models/';
+ 
+import { Observable } from 'rxjs';
+ 
+@Component({
+    selector: 'lead-source',
+    templateUrl: 'lead-source.component.html'
+})
+export class LeadSourceComponent implements OnInit {
+ 
+    pageSectionTitle1 = 'Lead Source';
+    panelSection1 = 'Add Lead Source';
+    panelSection2 = 'Update Lead Source';
+    dropdownRates: any[] = [];
+    displayRates: Rate[] = [];
+    guestTypes: any[] = [];
+    leadSources: any[] = [];
+    newLeadSource: Rate = new Rate();
+    unmappedRateDD: any[];
+    updates: number[] = [];
+    loading: boolean = true; 
+    
+ 
+    constructor(
+        private service: LeadSourceService 
+    ) {}
+ 
+    ngOnInit() {
+        this.service.getInitial().subscribe((res: any) => {
+            if (res) {
+                this.displayRates = res.displayList;
+                this.displayRates.sort(function(a,b){
+                    return(a.rateCode>b.rateCode)?1:((b.rateCode>a.rateCode)?-1:0);
+            });
+                this.guestTypes = res.guestTypes.reduce((acc: any, item: any) => {
+                    acc[item.lookUpCode] = item.lookUpDesc;
+                    return acc;
+                },{});
+                this.unmappedRateDD = res.unmappedRates.map((item: any) => {
+                    return { id: item.rateCode, description: `${item.rateCode } - ${this.getGuestTypeDescription(item.guestTypeCode)}`};
+                });
+                this.leadSources = res.leadSourceDropdown;
+            }
+            this.loading = false;
+        });
+    }
+
+ 
+    getGuestTypeDescription(lookupCode: string) {
+        return this.guestTypes[lookupCode];
+    }
+ 
+    addUpdate(item: number) {
+        if (this.updates.indexOf(item) < 0) {
+            this.updates.push(item);
+        }
+    }
+ 
+    remove(item: number) {
+        this.loading = true;
+        this.service.remove(this.displayRates[item]).subscribe((res) => {
+            if (res) {
+                this.displayRates = res;
+                this.displayRates.sort(function(a,b){
+                    return(a.rateCode>b.rateCode)?1:((b.rateCode>a.rateCode)?-1:0);
+            });
+            }
+            let indx = this.updates.indexOf(item);
+            if (indx >= 0) {
+                this.updates.splice(indx, 1);
+            }
+            this.loading = false;
+        });
+    }
+ 
+    create(item: Rate) {
+        this.loading = true;
+        this.service.save(item).subscribe((res) => {
+            if (res) {
+                this.displayRates = res;
+                this.displayRates.sort(function(a,b){
+                    return(a.rateCode>b.rateCode)?1:((b.rateCode>a.rateCode)?-1:0);
+            });
+            }
+            this.loading = false;
+            this.newLeadSource = new Rate();
+            this.newLeadSource.leadSourceCode = '';
+            this.newLeadSource.rateCode = '';
+        });
+    }
+ 
+    update(items: number[]) {
+        let updates = items.map((num: number) => { return this.displayRates[num]} );
+        this.loading = true;
+        this.service.update(updates).subscribe((res) => {
+            if (res) {
+                this.displayRates = res;
+                this.displayRates.sort(function(a,b){
+                    return(a.rateCode>b.rateCode)?1:((b.rateCode>a.rateCode)?-1:0);
+            });
+            }
+            this.loading = false;
+            this.updates = [];
+        });
+    }
+
+     otherSelects(typed: string, list: any[]): string {
+        let selected = list.filter((obj: any)  =>  {
+            if(typed) {
+                let name : string = obj.description;
+                let id = name.split('-')[0];
+                let val = id.substring(0, typed.length);
+                return val === typed;
+            }
+        })[0];
+        return (selected) ? selected.id : null;
+    }
+ 
+}
+
+
+
+
+
+
+emailaccess
+
+
+import { Component, Input, OnInit, ViewChild } from '@angular/core';
+import { ActivatedRoute, Params } from '@angular/router';
+import { Location } from '@angular/common';
+
+import { PersonComponent } from './person.component';
+
+import { SelectItem } from 'primeng/primeng';
+import { MdDialog, MdSnackBar } from '@angular/material';
+
+import { Access } from '../../../models/index';
+import { PersonService } from '../../../services/index';
+import { LookupService } from '../../../services/index';
+import { PersonAccess } from '../../../models/index';
+
+@Component({
+    selector: 'access-form',
+    templateUrl: 'access.component.html',
+    styleUrls: ['./access.component.scss']
+})
+export class AccessComponent implements OnInit {
+
+    @Input() person: PersonAccess;
+    @Input() personId: number;
+    createMode: boolean;
+    activeOptions: SelectItem[];
+    editable: boolean;
+    successMessage: string;
+    emailFormat: boolean;
+    emailList: string[];
+    requiredField: boolean;
+
+    constructor(
+        private personService: PersonService,
+        private route: ActivatedRoute,
+        public snackBar: MdSnackBar,
+        private location: Location,
+        private persons: PersonComponent,
+        private lookUpService: LookupService,
+    ) {
+        this.emailList = [];
+        this.editable = false;
+        this.createMode = true;
+        this.person = new PersonAccess(true, '', '', '', -1, '', '', '', '', null);
+        this.personService.getAccesses().subscribe((items) => {
+            this.person.accesses = items;
+        });
+
+        this.activeOptions = [];
+        this.activeOptions.push({ label: 'Active', value: true });
+        this.activeOptions.push({ label: 'Inactive', value: false });
+        this.emailFormat = false;
+    }
+
+    ngOnInit(): void {
+        let id = this.personId;
+        if (id) {
+            this.personService.getPerson(id).subscribe((person: any) => {
+                this.createMode = false;
+                this.person = person;
+            });
+        }
+        this.lookUpService.getLookUpDesc().subscribe((lookUpDesc: any) => {
+        this.emailList = lookUpDesc;
+        });
+    }
+
+    checkbox(updatedItem: Access): void {
+        for (let item of this.person.accesses) {
+            if (item.accessCode === updatedItem.accessCode) {
+                item.activeFlag = !updatedItem.activeFlag;
+            }
+        }
+    }
+
+    goBack(): void {
+        this.location.back();
+    }
+
+    save(): void {
+        if (this.person.userName && this.person.firstName && this.person.lastName) {
+            this.requiredField = false;
+            let isValid = true;
+            if(this.person.emailAddress){
+                let index = this.person.emailAddress.indexOf('@');
+                let domainName = this.person.emailAddress.substring(index);
+                isValid = this.emailList.includes(domainName);
+            }
+
+           if (!this.person.emailAddress || isValid) {
+            this.emailFormat = false;
+            this.persons.closeSlider();
+            let id = this.personId;
+            this.personService.update(this.person).subscribe((person) => {
+                this.persons.saveNewUser();
+                if (id) {
+                    this.successMessage = `Sucess! You have successfully updated ${this.person.firstName}  ${this.person.lastName}'s user account`;
+                    this.snackBar.open(this.successMessage, 'OK', {
+                        duration: 4500,
+                        extraClasses: ['persons-success-msg']
+                    });
+                } else {
+                    this.successMessage = `Sucess! You have successfully Created a New User ${this.person.firstName}  ${this.person.lastName}'s`;
+                    this.snackBar.open(this.successMessage, 'OK', {
+                        duration: 4500,
+                        extraClasses: ['persons-success-msg']
+                    });
+                }
+            });
+        }else {
+            this.emailFormat = true;
+        }
+        } else {
+            this.requiredField = true;
+        }
+    }
+
+}
+
+
+
+lead-status
+
+import { Component, OnInit, Input, Output, EventEmitter } from '@angular/core';
+import { Observable } from 'rxjs';
+import { ActivatedRoute } from '@angular/router';
+
+import { LeadStatus } from '../../../models/';
+import { LeadStatusService } from '../../../services/';
+
+import { Validators } from "@angular/forms";
+import { FormGroupHelper } from "../../../helpers/form-group-helper";
+
+
+@Component({
+    selector: 'lead-status',
+    templateUrl: 'lead-status.component.html',
+    styleUrls: [ 'lead-status.component.scss' ]
+})
+export class LeadStatusMapComponent implements OnInit {
+
+    leadToAdd: LeadStatus;
+    statuses: LeadStatus[];
+    updateSet: number[];
+    loading: Boolean;
+    status: LeadStatus;
+    index: number;
+    @Output() change = new EventEmitter<number>();
+    arrayFB: any;
+    updateLeadStatusForm: any;
+
+    constructor(
+        private leadStatusService: LeadStatusService,
+        private route: ActivatedRoute,
+        public formGroupHelper: FormGroupHelper
+    ) {}
+
+    ngOnInit() {
+        this.statuses = this.route.snapshot.data['statuses'];
+        this.leadToAdd = new LeadStatus();
+        this.loading = false;
+        this.updateSet = [];
+
+        this.arrayFB = {leadStatusList: this.formGroupHelper.initFormArray(this.statuses, {
+            leadStatusCode: [],
+            leadStatusDescription: [[Validators.required, Validators.minLength(2)]],
+            contacted: [],
+            invited: [],
+            booked: [],
+            notQualified: [],
+            unsolicitable: [],
+            reassigned: [],
+            exclude: [],
+            active: [],
+            sortOrder: [],
+            locationTypeCode: []
+        })};
+
+        this.updateLeadStatusForm = this.formGroupHelper.initForm(this.arrayFB);
+    }
+
+    add(lead: LeadStatus) {
+        this.loading = true;
+        this.leadStatusService.saveStatus(lead).subscribe((result) => {
+            if (result) {
+                this.loading = false;
+                this.statuses = result;
+                this.leadToAdd = new LeadStatus();
+                this.arrayFB = {leadStatusList: this.formGroupHelper.initFormArray(this.statuses, {
+                    leadStatusCode: [],
+                    leadStatusDescription: [[Validators.required, Validators.minLength(2)]],
+                    contacted: [],
+                    invited: [],
+                    booked: [],
+                    notQualified: [],
+                    unsolicitable: [],
+                    reassigned: [],
+                    exclude: [],
+                    active: [],
+                    sortOrder: [],
+                    locationTypeCode: []
+                })};
+
+                this.updateLeadStatusForm = this.formGroupHelper.initForm(this.arrayFB);
+            }
+        });
+    }
+
+    addUpdate(index: number) {
+        if (this.updateSet.indexOf(index) < 0) {
+            this.updateSet.push(index);
+        }
+    }
+
+    update() {
+        this.loading = true;
+
+        let updateItems = this.updateSet.map((i) => {
+            let newValues = this.updateLeadStatusForm.getRawValue().leadStatusList[i];
+            let oldValue = this.statuses[i];
+        
+            oldValue.sortOrder = newValues.sortOrder;
+            oldValue.active = newValues.active;
+            oldValue.exclude = newValues.exclude;
+            oldValue.reassigned = newValues.reassigned;
+            oldValue.unsolicitable = newValues.unsolicitable;
+            oldValue.notQualified = newValues.notQualified;
+            oldValue.booked = newValues.booked;
+            oldValue.invited = newValues.invited;
+            oldValue.contacted = newValues.contacted;
+            oldValue.leadStatusDescription = newValues.leadStatusDescription;
+            oldValue.leadStatusCode = newValues.leadStatusCode;
+            
+            let updatedValue = oldValue;
+            return updatedValue;
+            
+        });
+        this.leadStatusService.saveStatuses(updateItems).subscribe((result) => {
+            if (result) {
+                this.statuses = result;
+            }
+            this.loading = false;
+            this.updateSet = [];
+            this.arrayFB = {leadStatusList: this.formGroupHelper.initFormArray(this.statuses, {
+                    leadStatusCode: [],
+                    leadStatusDescription: [[Validators.required, Validators.minLength(2)]],
+                    contacted: [],
+                    invited: [],
+                    booked: [],
+                    notQualified: [],
+                    unsolicitable: [],
+                    reassigned: [],
+                    exclude: [],
+                    active: [],
+                    sortOrder: [],
+                    locationTypeCode: []
+                })};
+
+            this.updateLeadStatusForm = this.formGroupHelper.initForm(this.arrayFB);
+        });
+    }
+
+}
+
+
+
+vsc-schedulling
+
+import {Component, OnInit, ViewChild, ViewEncapsulation} from '@angular/core';
+import {Router} from '@angular/router';
+import {MultipleDatePickerComponent} from 'multiple-date-picker-angular/dist/multiple-date-picker.component';
+import {AllocationService, SchedulingService} from '../../../services/index';
+import {AllocationDropdown, Dropdown, Scheduling} from '../../../models/index';
+
+import {MdSnackBar} from '@angular/material';
+
+import {SlliderToggleHelper} from '../../../helpers';
+import {CalendarDateFormatter, CalendarEvent, CalendarEventAction, CalendarEventTimesChangedEvent, CalendarMonthViewDay} from 'angular-calendar';
+
+import {Subject} from 'rxjs/Subject';
+
+import {addDays, addHours, addMonths, addWeeks, endOfMonth, isSameDay, isSameMonth, startOfDay, subDays, subMonths, subWeeks} from 'date-fns';
+import {ApplicationStore} from '../../../store/application.store';
+import moment = require('moment');
+
+let styles = String(require('../../../../../node_modules/angular-calendar/dist/css/angular-calendar.css'));
+
+    const colors: any = {
+        red: {
+            primary: '#ad2121',
+            secondary: '#FAE3E3'
+        },
+        blue: {
+            primary: '#1e90ff',
+            secondary: '#D1E8FF'
+        },
+        green_tea: {
+            primary: '#78BC42',
+            secondary: 'green'
+        },
+        yellow: {
+            primary: '#e3bc08',
+            secondary: '#FDF1BA'
+        }
+    };
+
+@Component({
+  selector: 'vsc-scheduling',
+  templateUrl: 'vsc.component.html',
+  styleUrls: ['./vsc.component.scss', styles],
+  providers: [AllocationService, CalendarDateFormatter, SchedulingService],
+  encapsulation: ViewEncapsulation.None
+})
+export class VscSchedulingComponent implements OnInit {
+    pageSectionTitle1 = 'VSC Scheduling';
+    pageSectionTitle2 = 'VSC Calendar';
+    panelSection1 = 'Assign schedule for vacation service coordinator*';
+    view = 'month';
+    viewDate: Date = new Date();
+    vscPersons: Dropdown[];
+    dropdowns: AllocationDropdown;
+    workSchedule: Scheduling[];
+    openCalendar: boolean;
+    personSelected: string;
+    valuesToUpdate: Scheduling[];
+    work: Scheduling;
+    show: boolean = false;
+    createPersonId: number;
+    personDateMap: any;
+    successMessage: string;
+    buttonDisabled: boolean;
+    test: any[];
+    personDateMap2: any;
+    selectValue: any;
+    highlightDays: Array<any>;
+    actions: CalendarEventAction[] = [
+        {
+            label: '<i class="fa fa-fw fa-pencil"></i>',
+            onClick: ({event}: { event: CalendarEvent }): void => {
+            }
+        },
+        {
+            label: '<i class="fa fa-fw fa-times"></i>',
+            onClick: ({event}: { event: CalendarEvent }): void => {
+                this.events = this.events.filter(iEvent => iEvent !== event);
+            }
+        }
+    ];
+
+    @ViewChild(MultipleDatePickerComponent) public multipleDatePicker: MultipleDatePickerComponent;
+    refresh: Subject<any> = new Subject();
+    selectedDays: any[] = [];
+    events: CalendarEvent[] = [];
+    activeDayIsOpen = true;
+    increment(): void {
+        const addFn: any =
+        {
+            day: addDays,
+            week: addWeeks,
+            month: addMonths
+        }[this.view];
+        this.viewDate = addFn(this.viewDate, 1);
+    }
+    decrement(): void {
+        const subFn: any = {
+        day: subDays,
+        week: subWeeks,
+        month: subMonths
+        }[this.view];
+        this.viewDate = subFn(this.viewDate, 1);
+    }
+
+    today(): void {
+        this.viewDate = new Date();
+    }
+
+    dayClicked({date, events}: { date: Date, events: CalendarEvent[] }): void {
+        if (isSameMonth(date, this.viewDate)) {
+            if ((isSameDay(this.viewDate, date) && this.activeDayIsOpen === true) || events.length === 0) {
+                this.activeDayIsOpen = false;
+            } else {
+                this.activeDayIsOpen = true;
+                this.viewDate = date;
+            }
+        }
+    }
+    eventTimesChanged({event, newStart, newEnd}: CalendarEventTimesChangedEvent): void {
+        event.start = newStart;
+        event.end = newEnd;
+        this.refresh.next();
+    }
+
+
+    constructor(
+        private allocationService: AllocationService,
+        private schedulingService: SchedulingService,
+        public snackBar: MdSnackBar,
+        private router: Router,
+        private store: ApplicationStore,
+        private sliderHelper: SlliderToggleHelper,
+    ) {
+        this.work = new Scheduling();
+        this.valuesToUpdate = [];
+    }
+
+    addCssClass(day: CalendarMonthViewDay): void {
+        if (day.date.getDate() % 2 === 1 && day.inMonth) {
+        day.cssClass = 'odd-cell';
+        }
+    } // can remove furture use
+
+    ngOnInit(): void {
+        this.buttonDisabled = true;
+        this.openCalendar = false;
+        this.createPersonId = this.store.getState().services.authenticatedUser.id;
+        this.allocationService.getDropdowns().subscribe((dropdowns) => {
+            this.dropdowns = dropdowns;
+            if (dropdowns) {
+                this.vscPersons = this.dropdowns.assignments;
+                this.test = this.dropdowns.assignments;
+
+                this.test = this.dropdowns.assignments;
+                this.personDateMap2 = this.vscPersons.reduce((acc: any, val: any) => {
+                    acc[val.id] = {
+                        name: val.description,
+                        dates: []
+                    };
+                    return acc;
+                }, {});
+
+                this.schedulingService.getWorkSchedules().subscribe((workSchedule) => {
+                    if (workSchedule) {
+                        this.workSchedule = [];
+                         for (let date of workSchedule) {
+                             let dates = Object.assign({}, date);
+                            if (dates.workDate) {
+                                dates.workDate = moment(dates.workDate).format('MM-DD-YYYY');
+                            }
+                            this.workSchedule.push(dates);
+                             }
+                        this.personDateMap = this.workSchedule.reduce((acc: any, val: any) => {
+                            if (acc[val.personId]) {
+                            acc[val.personId].dates.push(val.workDate);
+                            }
+                            return acc;
+                        }, this.personDateMap2);
+                        this.events = [];
+                        for (let schedule of this.workSchedule) {
+                                if (this.vscPersons !== undefined && this.vscPersons !== null) {
+                                    for (let person of this.vscPersons) {
+                                        if (schedule.personId == person.id) {
+                                            this.events.push({
+                                                start: startOfDay(new Date(schedule.workDate)),
+                                                end: addDays(new Date(schedule.workDate), 0),
+                                                title: person.description,
+                                                color: colors.blue
+                                            });
+                                        }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+
+        // calendar arrays
+        this.highlightDays = [
+            {date: new Date(), css: 'today', selectable: true, title: `Today's date is ${moment().format('MM-DD-YYYY')}`}
+        ]
+
+    }
+
+    changePerson(selectedPerson: string) {
+        this.multipleDatePicker.clearDays();
+        this.displayEvents(selectedPerson);
+    }
+
+    updateEvents(selectedDays: any[], selectedPerson: string) {
+        this.personDateMap[selectedPerson].dates = selectedDays;
+        let valuesToUpdate = [];
+        for (let index of selectedDays) {
+            let workTest = Object.assign({}, this.work);
+            workTest.personId = selectedPerson;
+            workTest.updatePersonId = this.createPersonId;
+            workTest.createPersonId = this.createPersonId;
+            workTest.workDate = moment(index).format('YYYY-MM-DD');
+            // workTest.workDate = index;
+            valuesToUpdate.push(workTest);
+        }
+
+
+        this.schedulingService.updateWorkSchedule(selectedPerson, valuesToUpdate).subscribe((result) => {
+            // throw 'error';
+            this.workSchedule = result;
+            this.schedulingService.getWorkSchedules().subscribe((workSchedule) => {
+                if (workSchedule) {
+                    this.workSchedule = [];
+                        for (let date of workSchedule) {
+                            let dates = Object.assign({}, date);
+                            if (dates.workDate) {
+                                dates.workDate = moment(dates.workDate).format('MM-DD-YYYY');
+                            }
+                            this.workSchedule.push(dates);
+                            }
+                        this.events = [];
+                        for (let schedule of this.workSchedule) {
+                                if (this.vscPersons !== undefined && this.vscPersons !== null) {
+                                    for (let person of this.vscPersons) {
+                                        // fix this tonight
+                                        if (schedule.personId == person.id) {
+                                            this.events.push({
+                                                start: startOfDay(new Date(schedule.workDate)),
+                                                end: addDays(new Date(schedule.workDate), 0),
+                                                title: person.description,
+                                                color: colors.blue
+                                            });
+                                        }
+                                }
+                            }
+                        }
+                    }
+            });
+            this.successMessage = 'Updated the VSC successfully';
+            this.snackBar.open(this.successMessage , 'OK', {
+            duration: 4500,
+            extraClasses: ['tour-success-msg']
+            });
+        });
+    }
+
+    displayEvents(coordintaorId: string) {
+        if (this.personDateMap[coordintaorId]) {
+            this.selectedDays = this.personDateMap[coordintaorId].dates.slice();
+            this.personSelected = this.personDateMap[coordintaorId].name;
+        } else {
+        }
+    }
+}
+
+
+
