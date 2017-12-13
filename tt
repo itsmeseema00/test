@@ -1,0 +1,7 @@
+scrollY: ,
+searching:
+sort:
+paging:
+
+this.displayRates.sort(function(a,b){
+                    return(a.rateCode>b.rateCode)?1:((b.rateCode>a.rateCode)?-1:0);
