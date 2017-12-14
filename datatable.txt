@@ -1,0 +1,298 @@
+
+$(document).ready(function(){
+$(".table").DataTable({
+"searching":false,
+"ordering":false,
+"paging":false,
+"columnDefs":[{
+	"targets":0,
+	"searchable":false,
+	"visible":false,
+	"checkboxes":{
+		selectRow:true
+
+}],
+"order":[[2, "asc"]]
+
+});
+});
+
+
+<div class="container">
+<table>
+
+
+scrollY: ,
+searching:
+sort:
+paging:
+
+
+
+
+
+
+
+import { Component, EventEmitter, Input, Output, OnChanges } from '@angular/core';
+import { SortAndFilterService } from '../../../services/index';
+import { Router } from '@angular/router';
+import { LeadContact } from '../../../models';
+import { ApplicationStore } from '../../../store/application.store';
+import { Reservation } from '../../../models/reservation';
+import { AccessCheckService } from '../../global/access-check.service';
+import { Lookup } from '../../../models/lookup';
+import { LeadDetailService } from '../../../services/lead-detail.service';
+import { handleNew } from '../../lead-callout/lead-callout.actions';
+
+/**
+ * Component that draws a table displaying lead contact information.
+ *
+ * @export
+ * @class LeadTableComponent
+ */
+@Component({
+    selector: 'leads-table',
+    templateUrl: './lead-table.component.html',
+    styleUrls: [
+        '../../global/table-main.component.scss',
+        './lead-table.component.scss'
+    ]
+})
+
+export class LeadTableComponent implements OnChanges {
+
+    @Input() leadDetails: LeadContact[];
+    @Input() title = '';
+    @Input() showHeader = true;
+    @Output() done: EventEmitter<String>;
+    @Input() sortable = true;
+    @Input() highlightedRes: number;
+    @Input() currentReservation: Reservation;
+    @Input() calloutsMode = false;
+    @Input() showActions: boolean = true;
+    @Input() showAssigned: boolean = true;
+    @Output() leadClicked: EventEmitter<any>;
+    spgTiers: Lookup[];
+    index = 1;
+    appStore: any;
+    sortToggle = false;
+    topScroll: number;
+    bottomScroll: number;
+    ascending: boolean;
+    allocatePerm: boolean;
+    deallocatePerm: boolean;
+    emptyLeads: boolean;
+    @Input() callOutHeaders: string[] = ['Guest Name', 'Status', 'Res Status', 'Ticket', 'Show Date', 'MC', 'RM', 'Arrival', 'Arrival Time',
+        'Departure', 'LoS', 'Guest Level', 'State', 'Room Rate', 'Rate Sched', 'Guest Type', 'Assigned To'];
+
+    propMap: any = {
+        'RM': 'roomNumber',
+        'Guest Name': 'lastName',
+        'Status': 'leadStatusCode',
+        'Arrival': 'stayArrivalDate',
+        // 'Arrival TIme': 'arrivalTime',
+        'Departure': 'stayDepartureDate',
+        'LoS': 'lengthOfStay',
+        'Guest Level': 'guestLevel',
+        'State': 'guestState',
+        'Room Rate': 'roomRate',
+        'Rate Sched': 'rateCode',
+        // 'GuestType': 'guestLevel',
+        'Res Status': 'resStatus',
+        'Ticket': 'tripTicketNumber',
+        'Show Date': 'showDate',
+        'MC': 'tourManifestCode',
+        'Arrival Time': 'arrivalTime',
+        'Guest Type': 'guestTypeDescription',
+        'Assigned To': 'assignedVSCName'
+    };
+
+    iconClickMap: any = {
+        'RM': true,
+        'Guest Name': true,
+        'Status': true,
+        'Arrival': true,
+        'Arrival TIme': true,
+        'Departure': true,
+        'LoS': true,
+        'Guest Level': true,
+        'State': true,
+        'Room Rate': true,
+        'Rate Sched': true,
+        //'GuestType': true,
+        'Res Status': true,
+        'Ticket': true,
+        'Show Date': true,
+        'MC': true,
+        'Arrival Time': true,
+        'Guest Type': true,
+        'Assigned To': true
+    };
+
+    config: any = {
+        id: 'custom',
+        itemsPerPage: 500,
+        currentPage: 1
+    };
+
+
+    constructor(
+        private sortService: SortAndFilterService,
+        private router: Router,
+         private store: ApplicationStore,
+        private accessCheck: AccessCheckService,
+        private leadDetailService: LeadDetailService) {
+        this.done = new EventEmitter<String>();
+        this.appStore = store.getState();
+        this.leadClicked = new EventEmitter<any>();
+        this.leadDetails = [];
+        this.leadDetailService.getLookupData().subscribe((response) => {
+            if (response) {
+                this.spgTiers = response.spgLevels;
+            }
+        });
+
+    }
+
+    ngOnChanges() {
+        this.allocatePerm = this.accessCheck.checkAccess(['AL']);
+        this.deallocatePerm = this.accessCheck.checkAccess(['DL']);
+        this.makeEmptyString();
+    }
+
+    getSpgText(spgLevel: string): string {
+        let result = '';
+        if (spgLevel) {
+            result = spgLevel;
+            if (this.spgTiers) {
+                let foundLookup: Lookup[] = this.spgTiers.filter((e) => e.lookUpCode === spgLevel);
+                result = foundLookup && foundLookup.length > 0 ? foundLookup[0].lookUpDesc : result;
+            }
+        }
+        return result;
+    }
+
+    onWindowsScrollTop() {
+        document.querySelector('.table-wrapper-bottom').scrollLeft = document.querySelector('.table-wrapper-top').scrollLeft;
+    }
+
+    onWindowsScrollBottom() {
+        document.querySelector('.table-wrapper-top').scrollLeft = document.querySelector('.table-wrapper-bottom').scrollLeft;
+    }
+
+    sortLeads(by: any, collection: LeadContact[]): LeadContact[] {
+        if (this.sortable && !this.calloutsMode) {
+            let byCopy = this.propMap[by];
+            let sorted = this.sortService.sortByHeader(byCopy, collection);
+            if (!this.sortToggle && !this.iconClickMap[by]) { // toggling same column
+                this.ascending = true;
+                this.sortToggle = true;
+                this.leadDetails = sorted;
+                return this.leadDetails;
+            } else if (!this.sortToggle && this.iconClickMap[by]) { // toggling to a new column
+                this.ascending = true;
+                this.sortToggle = true;
+                this.leadDetails = sorted;
+                return this.leadDetails;
+            } else if (this.sortToggle && !this.iconClickMap[by]) { // toggling same column
+                this.ascending = false;
+                this.sortToggle = false;
+                this.leadDetails = sorted.reverse();
+                return this.leadDetails;
+            } else if (this.sortToggle && this.iconClickMap[by]) { // toggling a new column
+                this.ascending = true;
+                this.sortToggle = false;
+                this.leadDetails = sorted;
+                return this.leadDetails;
+            }
+        }
+    }
+
+    sortIcons(by: any) {
+        this.iconClickMap[by] = false;
+        if (!this.iconClickMap[by]) {
+            for (let key in this.iconClickMap) {
+                this.iconClickMap[key] = true;
+            }
+            this.iconClickMap[by] = false;
+        }
+    }
+
+    calculateIndex(pageIndex: number, config: any) {
+        let _currentPage = config.currentPage;
+        let iPP = config.itemsPerPage;
+        let base = (_currentPage - 1) * iPP;
+        return pageIndex + base;
+    }
+
+    trackByFn(lead: any) {
+        return lead.firstName + lead.lastName + lead.pmsConfirmation;
+    }
+
+    calledIt() {
+        this.done.emit();
+    }
+
+    /**
+     * Navigate to the callouts component.
+     */
+    gotoCallouts() {
+        if (this.leadDetails.length > 0) {
+            this.emptyLeads = false;
+            this.store.dispatch(handleNew(this.leadDetails));
+            this.router.navigate(['/lead-callout']).then();
+        } else {
+            this.emptyLeads = true;
+        }
+    }
+
+    /**
+     * Go to a lead detail record
+     * @param lead - lead record
+     * @param index - Index of the current result
+     */
+    goTo(lead: any, index: number) {
+        if (this.calloutsMode) {
+            this.leadClicked.emit(index - 1);
+            return;
+        } else {
+            if (lead.customerUniqueId) {
+                let navigation = ['/lead-detail', lead.resConfirmation, lead.roomSeq, lead.guestSeq, lead.customerUniqueId];
+                this.router.navigate(navigation).then();
+            } else {
+                let navigation = ['/lead-detail', lead.resConfirmation, lead.roomSeq, lead.guestSeq, 0];
+                this.router.navigate(navigation).then();
+            }
+            return;
+        }
+    }
+
+    /**
+     * Print the current page.
+     */
+    print() {
+        window.print();
+    }
+
+    getAllocatePage() {
+        let link = ['allocate-vscs'];
+        this.router.navigate(link).then();
+    }
+
+    isSelected(lead: LeadContact): boolean {
+        return this.currentReservation && (lead.resConfirmation === String(this.currentReservation.resNum) && lead.guestSeq === this.currentReservation.guestSeq && lead.roomSeq === this.currentReservation.roomSeq);
+    }
+
+    makeEmptyString() {
+        if (this.leadDetails) {
+            for (let data of this.leadDetails) {
+                data.guestLevel = data.guestLevel == null ? '' : data.guestLevel;
+                data.leadStatusCode = data.leadStatusCode == null ? '' : data.leadStatusCode;
+                data.arrivalTime = data.arrivalTime == null ? '' : data.arrivalTime;
+                data.showDate = data.showDate == null ? '' : data.showDate;
+                data.tourManifestCode = data.tourManifestCode == null ? '' : data.tourManifestCode;
+            }
+        }
+    }
+}
+
