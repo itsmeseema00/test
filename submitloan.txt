@@ -1,0 +1,328 @@
+package org.rbfcu.netbranch.loanorigination.status.action;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.struts.action.Action;
+import org.apache.struts.action.ActionError;
+import org.apache.struts.action.ActionErrors;
+import org.apache.struts.action.ActionForm;
+import org.apache.struts.action.ActionForward;
+import org.apache.struts.action.ActionMapping;
+import org.rbfcu.netbranch.common.bean.Constants;
+SubmitLoanFinalizationTemplateAction
+
+
+import org.rbfcu.netbranch.loanorigination.common.bean.LoanConstants;
+import org.rbfcu.netbranch.loanorigination.status.service.CreateLoanFinalizationMessage;
+import org.rbfcu.netbranch.loanorigination.web.LoanSession;
+import org.rbfcu.service.loanorigination.response.UpdateLoanResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class SubmitLoanFinalizationTemplateAction extends Action {
+
+	private static final Logger LOG = LoggerFactory.getLogger(SubmitLoanFinalizationTemplateAction.class);
+	private static final String DUPLICATE_MESSAGE = "finalization.duplicate.submission";
+
+	public ActionForward execute(ActionMapping mapping, ActionForm form, HttpServletRequest request, HttpServletResponse response)
+			throws Exception {
+		LOG.debug("inside SubmitLoanFinalizationMessageAction");
+
+		try {
+
+			LoanSession session = new LoanSession(request);
+			if (session.getSubmittedLoanId() != null && session.getSubmittedLoanId().equals(request.getParameter("loanId"))) {
+				return mapping.findForward(Constants.MAPPING_FAIL);
+			}
+			UpdateLoanResponse output = new SubmitLoanFinalizationTemplate().submitFinalizationTemplate(form, request);
+
+			if (output.getFirstWarning() != null && output.getFirstWarning().getCode().equals(DUPLICATE_MESSAGE)) {
+				addErrorMessage(request, DUPLICATE_MESSAGE);
+				return mapping.findForward(LoanConstants.MAPPING_LOAN_FINALIZATION_TEMPLATE);
+			}
+
+			new CreateLoanFinalizationMessage().addSucessMessageAttributes(request, form);
+		} catch (Exception e) {
+			LOG.error("unable to submit message", e);
+			addErrorMessage(request, "securemsg.notsent");
+			return mapping.getInputForward();
+		}
+		return mapping.findForward(LoanConstants.MAPPING_LOAN_FINALIZATION_TEMPLATE);
+	}
+
+	private void addErrorMessage(HttpServletRequest request, String errorMessage) {
+		ActionErrors errors = new ActionErrors();
+		errors.add(ActionErrors.GLOBAL_ERROR, new ActionError(errorMessage));
+		saveErrors(request, errors);
+	}
+}
+
+
+
+package org.rbfcu.netbranch.loanorigination.status.action;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.struts.action.ActionForm;
+import org.apache.struts.validator.DynaValidatorForm;
+import org.rbfcu.netbranch.loanorigination.status.bean.LoanMessage;
+import org.rbfcu.netbranch.loanorigination.status.service.CreateLoanFinalizationMessage;
+import org.rbfcu.netbranch.loanorigination.status.service.LoanApplicationStatusClient;
+import org.rbfcu.netbranch.loanorigination.status.service.SubmitLoanSecureMessage;
+import org.rbfcu.service.loanorigination.response.UpdateLoanResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class SubmitLoanFinalizationTemplate {
+
+	private static final Logger LOG = LoggerFactory.getLogger(SubmitLoanFinalizationTemplate.class);
+	private SubmitLoanSecureMessage submitLoanSecureMessage = null;
+	private LoanApplicationStatusClient loanApplicationStatusClient = null;
+	private CreateLoanFinalizationMessage loanFinalizationMessage = null;
+
+	public UpdateLoanResponse submitFinalizationTemplate(ActionForm form, HttpServletRequest request) throws Exception {
+
+		UpdateLoanResponse output = new UpdateLoanResponse();
+		try {
+			LoanMessage loanFinalizationMessage = new LoanMessage();
+			loanFinalizationMessage = getSubmitLoanSecureMessage().createLoanMessage(form);
+			loanFinalizationMessage.setMessage(getLoanFinalizationMessage().createMessage(form));
+			output = getLoanApplicationStatusClient().updateLoan(request.getParameter("loanId"), loanFinalizationMessage.getMessage(),
+					getLoanFinalizationMessage().getTaskListItemCode((String) ((DynaValidatorForm) form).get("loanType")));
+
+			if (!output.isValid()) {
+				throw new Exception("error updating loan." + output.getErrors() + loanFinalizationMessage.getContent());
+			} else if (output.getLoanId() != null) {
+				getSubmitLoanSecureMessage().submitLoanMessage(loanFinalizationMessage, request);
+			}
+		} catch (Exception e) {
+			LOG.error("unable to submit message", e);
+			throw e;
+		}
+		return output;
+	}
+
+	private SubmitLoanSecureMessage getSubmitLoanSecureMessage() {
+		return submitLoanSecureMessage == null ? new SubmitLoanSecureMessage() : submitLoanSecureMessage;
+	}
+
+	public void setSubmitLoanSecureMessage(SubmitLoanSecureMessage submitLoanSecureMessage) {
+		this.submitLoanSecureMessage = submitLoanSecureMessage;
+	}
+
+	private LoanApplicationStatusClient getLoanApplicationStatusClient() {
+		return loanApplicationStatusClient == null ? new LoanApplicationStatusClient() : loanApplicationStatusClient;
+	}
+
+	public void setLoanApplicationStatusClient(LoanApplicationStatusClient loanApplicationStatusClient) {
+		this.loanApplicationStatusClient = loanApplicationStatusClient;
+	}
+
+	private CreateLoanFinalizationMessage getLoanFinalizationMessage() {
+		return loanFinalizationMessage == null ? new CreateLoanFinalizationMessage() : loanFinalizationMessage;
+	}
+}
+
+
+
+
+
+
+
+
+
+package org.rbfcu.netbranch.loanorigination.status.service;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.struts.action.ActionForm;
+import org.apache.struts.validator.DynaValidatorForm;
+import org.rbfcu.common.date.DateUtility;
+import org.rbfcu.loanorigination.business.LoanType;
+import org.rbfcu.loanorigination.business.TaskType;
+import org.rbfcu.netbranch.loanorigination.common.bean.LoanConstants;
+import org.rbfcu.netbranch.loanorigination.web.LoanSession;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class CreateLoanFinalizationMessage {
+
+	private static final Logger LOG = LoggerFactory.getLogger(CreateLoanFinalizationMessage.class);
+
+	public String createMessage(ActionForm form) throws Exception {
+		String message = "";
+		try {
+
+			SimpleDateFormat formatter = new SimpleDateFormat("E MMM dd HH:mm:ss Z yyyy");
+			Date date = formatter.parse((String) ((DynaValidatorForm) form).get("dueDate"));
+			String dueDate = DateUtility.formatUsaDate(date);
+			message = "Amount: " + (String) ((DynaValidatorForm) form).get("amount");
+			message += ", Length Of term: " + (String) ((DynaValidatorForm) form).get("term");
+			message += ", Payment Frequency: " + (String) ((DynaValidatorForm) form).get("frequency");
+			message += ", Due Date: " + dueDate;
+			message += ", Payment Amount: " + (String) ((DynaValidatorForm) form).get("paymentAmount");
+			message += ", Payment Method: " + (String) ((DynaValidatorForm) form).get("paymentMethod");
+
+			if (StringUtils.equals((String) ((DynaValidatorForm) form).get("paymentMethod"), LoanConstants.AUTOMATIC_PAYMENT_RBFCU_ACCOUNT)) {
+				String fromAccount = (String) ((DynaValidatorForm) form).get("fromAccounts");
+				String fromAccountNumber = StringUtils.substringBefore(fromAccount, "-");
+				message += ", From: " + fromAccountNumber;
+			} else if (StringUtils.equals((String) ((DynaValidatorForm) form).get("paymentMethod"),
+					LoanConstants.AUTOMATIC_PAYMENT_ANOTHER_ACCOUNT)) {
+				message += ", Account Type: " + (String) ((DynaValidatorForm) form).get("transferFromAccountType");
+				message += ", Account Number: " + (String) ((DynaValidatorForm) form).get("otherFIAccountNumber");
+				message += ", Routing Number: " + (String) ((DynaValidatorForm) form).get("otherFIRoutingNumber");
+				message += ", Account Holder's Name: " + (String) ((DynaValidatorForm) form).get("otherFIAccountName");
+			}
+
+			if (StringUtils.equals((String) ((DynaValidatorForm) form).get("loanType"), LoanType.PERSONAL.getDescription())) {
+				message += ", Contact member for PPI:";
+			} else {
+				message += ", Contact member for GAPA/MMP/PPI:";
+			}
+
+			message += StringUtils.contains((String) ((DynaValidatorForm) form).get("insurance"), "Yes") ? "Yes" : "No";
+			String comments = (String) ((DynaValidatorForm) form).get("comments");
+			if (StringUtils.isNotEmpty(comments)) {
+				message += ", Member Comments: " + comments;
+			}
+
+		} catch (Exception e) {
+			LOG.error("error in creating Tasklist message", e);
+			throw e;
+		}
+		return message;
+	}
+
+	public void addSucessMessageAttributes(HttpServletRequest request, ActionForm form) {
+
+		request.setAttribute("messageSubmitted", "successful");
+		addUserEnteredFinalizationDetailsToRequest(request, form);
+
+		LoanSession loanSession = new LoanSession(request);
+		loanSession.setSubmittedLoanId(request.getParameter("loanId"));
+	}
+
+	public void addUserEnteredFinalizationDetailsToRequest(HttpServletRequest request, ActionForm form) {
+
+		request.setAttribute("paymentMethod", (String) ((DynaValidatorForm) form).get("paymentMethod"));
+		if (StringUtils.equals((String) ((DynaValidatorForm) form).get("paymentMethod"), LoanConstants.AUTOMATIC_PAYMENT_RBFCU_ACCOUNT)) {
+			String fromAccount = (String) ((DynaValidatorForm) form).get("fromAccounts");
+			String fromAccountNumber = StringUtils.substringBefore(fromAccount, "-");
+			String fromAccountNickName = StringUtils.substringBetween(fromAccount, "-", "-");
+			String fromAccountNumberAferNickName = StringUtils.substringAfterLast(fromAccount, fromAccountNickName);
+			request.setAttribute("fromAccount", fromAccount);
+			request.setAttribute("fromAccountNumber", fromAccountNumber);
+			request.setAttribute("fromAccountNickName", fromAccountNickName);
+			request.setAttribute("fromAccountNumberAferNickName", fromAccountNumberAferNickName);
+		} else {
+			request.setAttribute("fromAccount", "");
+		}
+		request.setAttribute("fromAccountType", (String) ((DynaValidatorForm) form).get("transferFromAccountType"));
+		request.setAttribute("accountNumber", (String) ((DynaValidatorForm) form).get("otherFIAccountNumber"));
+		request.setAttribute("routingNumber", (String) ((DynaValidatorForm) form).get("otherFIRoutingNumber"));
+		request.setAttribute("accountHolderName", (String) ((DynaValidatorForm) form).get("otherFIAccountName"));
+		request.setAttribute("insurance", (String) ((DynaValidatorForm) form).get("insurance"));
+		request.setAttribute("memberComments", (String) ((DynaValidatorForm) form).get("comments"));
+	}
+
+	public String getTaskListItemCode(String loanType) {
+		return LoanType.PERSONAL.getDescription().equals(loanType) ? TaskType.CONFIRM_TERMS_LOAN.getCode()
+				: TaskType.CONFIRM_TERMS_LOAN_VL.getCode();
+	}
+}
+
+
+
+
+
+
+
+
+[11/14/17 16:30:56:307 CST] 000383cc SystemOut     O ERROR action.SubmitLoanFinalizationMessageAction (SubmitLoanFinalizationMessageAction.java:47)     - unable to submit message
+
+java.text.ParseException: Unparseable date: ""
+
+        at java.text.DateFormat.parse(DateFormat.java:377)
+
+        at org.rbfcu.netbranch.loanorigination.status.service.SubmitLoanFinalizationMessage.createMessage(SubmitLoanFinalizationMessage.java:26)
+
+        at org.rbfcu.netbranch.loanorigination.status.action.SubmitLoanFinalizationMessageAction.execute(SubmitLoanFinalizationMessageAction.java:36)
+
+        at org.apache.struts.action.RequestProcessor.processActionPerform(RequestProcessor.java:484)
+
+        at org.apache.struts.action.RequestProcessor.process(RequestProcessor.java:274)
+
+        at org.apache.struts.action.ActionServlet.process(ActionServlet.java:1482)
+
+        at org.apache.struts.action.ActionServlet.doPost(ActionServlet.java:525)
+
+        at org.rbfcu.netbranch.common.web.servlet.ControllerServlet.handleRequest(ControllerServlet.java:117)
+
+        at org.rbfcu.netbranch.common.web.servlet.ControllerServlet.doPost(ControllerServlet.java:103)
+
+        at javax.servlet.http.HttpServlet.service(HttpServlet.java:595)
+
+        at javax.servlet.http.HttpServlet.service(HttpServlet.java:668)
+
+        at com.ibm.ws.webcontainer.servlet.ServletWrapper.service(ServletWrapper.java:1233)
+
+        at com.ibm.ws.webcontainer.servlet.ServletWrapper.handleRequest(ServletWrapper.java:782)
+
+        at com.ibm.ws.webcontainer.servlet.ServletWrapper.handleRequest(ServletWrapper.java:481)
+
+        at com.ibm.ws.webcontainer.servlet.ServletWrapperImpl.handleRequest(ServletWrapperImpl.java:178)
+
+        at com.ibm.ws.webcontainer.filter.WebAppFilterChain.invokeTarget(WebAppFilterChain.java:136)
+
+        at com.ibm.ws.webcontainer.filter.WebAppFilterChain.doFilter(WebAppFilterChain.java:97)
+
+        at org.rbfcu.netbranch.common.web.restricted.AuthorizationFilter.doFilter(AuthorizationFilter.java:84)
+
+        at com.ibm.ws.webcontainer.filter.FilterInstanceWrapper.doFilter(FilterInstanceWrapper.java:195)
+
+        at com.ibm.ws.webcontainer.filter.WebAppFilterChain.doFilter(WebAppFilterChain.java:91)
+
+        at org.rbfcu.netbranch.common.web.restricted.RestrictedAccessFilter.doFilter(RestrictedAccessFilter.java:76)
+
+        at com.ibm.ws.webcontainer.filter.FilterInstanceWrapper.doFilter(FilterInstanceWrapper.java:195)
+
+        at com.ibm.ws.webcontainer.filter.WebAppFilterChain.doFilter(WebAppFilterChain.java:91)
+
+        at com.ibm.ws.webcontainer.filter.WebAppFilterManager.doFilter(WebAppFilterManager.java:967)
+
+        at com.ibm.ws.webcontainer.filter.WebAppFilterManager.invokeFilters(WebAppFilterManager.java:1107)
+
+        at com.ibm.ws.webcontainer.webapp.WebApp.handleRequest(WebApp.java:3980)
+
+        at com.ibm.ws.webcontainer.webapp.WebGroup.handleRequest(WebGroup.java:304)
+
+        at com.ibm.ws.webcontainer.WebContainer.handleRequest(WebContainer.java:1016)
+
+        at com.ibm.ws.webcontainer.WSWebContainer.handleRequest(WSWebContainer.java:1817)
+
+        at com.ibm.ws.webcontainer.channel.WCChannelLink.ready(WCChannelLink.java:200)
+
+        at com.ibm.ws.http.channel.inbound.impl.HttpInboundLink.handleDiscrimination(HttpInboundLink.java:463)
+
+        at com.ibm.ws.http.channel.inbound.impl.HttpInboundLink.handleNewRequest(HttpInboundLink.java:530)
+
+        at com.ibm.ws.http.channel.inbound.impl.HttpInboundLink.processRequest(HttpInboundLink.java:316)
+
+        at com.ibm.ws.http.channel.inbound.impl.HttpICLReadCallback.complete(HttpICLReadCallback.java:88)
+
+        at com.ibm.ws.tcp.channel.impl.WorkQueueManager.requestComplete(WorkQueueManager.java:558)
+
+        at com.ibm.ws.tcp.channel.impl.WorkQueueManager.attemptIO(WorkQueueManager.java:608)
+
+        at com.ibm.ws.tcp.channel.impl.WorkQueueManager.workerRun(WorkQueueManager.java:985)
+
+
+
+
+
