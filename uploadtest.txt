@@ -1,0 +1,116 @@
+
+
+DocumentUplaodManager
+
+69 org.rbfcu.netbranch.loanorigination.web.LoanSession@2f2412
+ 
+ 
+ 70
+ org.rbfcu.netbranch.loanorigination.status.bean.LoanStatusInfo@23ebe3a3
+ 
+ 72businesslending/creditcard/loan
+ 
+ 
+ loanStatusUtility
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ Hi Ankush, I was trying to upload documents to same vendor(lpq) that we are using for personal loan. But since that loan number 12345 isnot there in LPQ it is throwing me ResponseError: INTERNAL_ERROR - Invalid app specified.  Do we need to use same vendor or we will be using other vendor for business? please advise
+Hi Ankush, I was trying to upload documents to same vendor(lpq) that we are using for personal loan. But since that loan number 12345 isnot there in LPQ it is throwing me ResponseError: INTERNAL_ERROR - Invalid app specified.  Do we need to use same vendor or we will be using other vendor for business? please advise
+Ankush Jain 4:30 PM
+You don't need to update to LPQ
+Seema Dhital 4:31 PM
+oho
+Ankush Jain 4:31 PM
+LPQ is used by Consumer Lending only for which we have the Loan Status page
+Mortage and Business department don't use LPQ
+We do not need to send the notification email also for Mortgage and Business. We may need to but it will be decided later
+
+ 
+ 
+how cna you view business loans for this person
+account status pag shows loans othe rthan business
+and what tables to look for bisuness loans
+info on them  
+how cna u retrieve it
+
+do u have to use org no or persnbr or tax id
+how cna u get the value
+chekc a loan number and see all its details
+get table info
+
+you would liek to see info of thet particular loan number
+which table to llok
+as u need to load it from nbo
+
+i am getting secure msg from message table. i want  to see info of that particular loan number
+which table to look?
+
+
+
+business loan is created by another team by manually entering this info .. only after loan is created we get loan Number
+from our end we only pass this info
+
+lendingRepositoryPrefix will be pre-defined
+assume it to be just the businessloan
+businessloan\loan
+
+We don't know if they Business department will want have upload for separate products
+So, for now just the businessloan
+as your SM link is what u comtrol
+on click u would know its cming from secure message based on parameters
+at that pint create a dummy loan type as business
+and at check add new if checking for business loan and set repo path
+
+at that point set a dummy loan type as business
+and in utility where u checking loan type add ur check for business and set the repo path from config file
+hi Ankush, how can we distinguish what type of loan is coming(personal or business). IS there any way we could add extra query params in links to link what kind of loan are coming so we could write logic according to that in DocumentUploadManager
+
+Then, run this test file in eclipse by changing the repository to what you used: TestGetDocumentService.java
+You need to change the JRE eclipse is using to the one being used by Websphere
+Certificate is already added to the JRE being used by WebSphere
+So, either 'you can use the same JRE by right clicking in eclipse and selecting either Run or Debug configurations' or 'you can install the certificate to the JRE being used by eclipse;
+
