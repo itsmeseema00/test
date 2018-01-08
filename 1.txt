@@ -1,0 +1,296 @@
+The following should be the values as per the member selections. 
+1. If the member says Yes for Courtesy pay and opts to cover all transactions (Checks, ACH and Debit Card) then: PSMX: Y, PSOD: 1, REOD: Y 
+
+2. If the member says Yes for Courtesy pay but opts to cover only Checks and ACH then: PSMX: Y, PSOD: 1, REOD: N 
+
+3. If the member says No for Courtesy pay then: PSMX: N, PSOD: 6, REOD: N
+
+
+
+
+
+
+
+/**
+	 * updates the account nickname, which is the account description field in OSI (OSIBANK.acct.acctdesc)
+	 * @return 
+	 */
+	private boolean updateNickname(HttpServletRequest request, AccountPreferencesForm form) throws Exception {
+		boolean nicknameUpdatedStatus = false;
+		List<Account> accountsToUpdate = getAccountsToUpdate(form);
+		if (accountsToUpdate.size() > 0) {
+			nicknameUpdatedStatus = myProfileClientService.updateAccountNicknames(request, accountsToUpdate);
+		} else {
+			LOG.debug("No account nicknames were modified, so no nicknames were updated");
+		}
+		return nicknameUpdatedStatus;
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	public boolean updateAccountNicknames(HttpServletRequest request, List<Account> accountsToUpdate) throws Exception {
+		String detail;
+		boolean nicknameUpdatedStatus = false;
+		LOG.debug("About to update {} account nicknames", accountsToUpdate.size());
+
+		UpdateAccountRequest maintRequest = new UpdateAccountRequest();
+		for (Account acct : accountsToUpdate) {
+			acct.setAccountMaintenance(true);
+			maintRequest.addAccount(acct);
+		}
+		String acctNbrs = getAccountNumbers(accountsToUpdate);
+
+		UpdateAccountResponse response = getAccountService().updateAccount(maintRequest);
+		if (!response.isValid()) {
+			detail = "Could not update account nicknames for accounts " + acctNbrs;
+			LOG.error(detail.toString());
+			logResponseErrors(response);
+			logActivity(request, ActivityType.ACCTNICKNAME_UPDATE_FAIL, detail);
+			throw new Exception(detail);
+		}
+		else{
+			nicknameUpdatedStatus = true;
+		}
+		detail = "Updated account nicknames for accounts " + acctNbrs;
+		LOG.debug(detail.toString());
+		logActivity(request, ActivityType.ACCTNICKNAME_UPDATE_SUCCESS, detail);
+		return nicknameUpdatedStatus;
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	<%@ include file="/WEB-INF/preHeader.jspf"%>
+<%@ page import="org.rbfcu.netbranch.common.bean.Constants"%>
+<link href="/NBO/assets/css/myProfile.css" rel="stylesheet"
+	type="text/css" />
+<c:set var="mainNav" value="myProfile" />
+<c:set var="formName" value="accountPreferencesForm" />
+
+<h1>Account Preferences</h1>
+<%@ include file="/WEB-INF/Jsp/DisplayResponseMessages.jsp"%>
+<form:form action="updateAccountPreferences"
+	modelAttribute="accountPreferencesForm">
+	<table>
+		<tr>
+			<th>Number</th>
+			<th>Type</th>
+			<th>Nickname</th>
+			<th>Default Nickname</th>
+			<th>Hide on<br />Account Summary
+			</th>
+		</tr>
+
+		<c:set var="maxNicknameLength"
+			value="<%=Constants.MAX_NICKNAME_LENGTH%>" />
+		<c:set var="nicknameSize" value="<%=Constants.MAX_NICKNAME_LENGTH%>" />
+		<c:set var="idx" value="0" />
+		<c:forEach var="accountPreferencesBeanIndexed"
+			items="${accountPreferencesForm.accountPreferencesBeans}">
+			<c:set var="className" value="" />
+			<c:if
+				test="${SelectedAccountId == accountPreferencesBeanIndexed.accountId}">
+				<c:set var="className" value="highlightrow" />
+			</c:if>
+			<tr class="${className}">
+				<td><c:out
+						value="${rbfcu:maskAccountNumber(accountPreferencesBeanIndexed.accountNumber)}" />
+				</td>
+				<td class="acctType"><c:out
+						value="${accountPreferencesBeanIndexed.accountType}" /></td>
+				<td class="acctType"><input type="text"
+					name="accountPreferencesBeans[${idx}].accountNickname"
+					class="textbox" style="margin-bottom: 2pt"
+					onchange="deselectDefault('${idx}')"
+					value="${accountPreferencesBeanIndexed.accountNickname}"
+					size="${nicknameSize}"></td>
+				<td><input type="checkbox"
+					name="accountPreferencesBeans[${idx}].resetToDflt"
+					onclick="setDfltNickname(this.name, dfltNicknames)" /></td>
+				<td><c:if test="${accountPreferencesBeanIndexed.allowShowHide}">
+						<form:checkbox path="accountPreferencesBeans[${idx}].hidden"
+							value="${accountPreferencesBeanIndexed.hidden}" />
+					</c:if></td>
+			</tr>
+			<c:set var="idx" value="${idx+1}" />
+		</c:forEach>
+	</table>
+	<div>&nbsp;</div>
+	<br />
+	<input type="submit" value="Submit" class="btn" />
+</form:form>
+
+<script type="text/javascript">
+	var dfltNicknames = new Array();
+	<c:forEach var="item" varStatus="curr" items="${accountPreferencesForm.accountPreferencesBeans}">
+	dfltNicknames[<c:out value="${curr.index}" />] = '<c:out value="${item.dfltAccountNickname}" />';
+	</c:forEach>
+
+	$(function() {
+		zebraStripeTables();
+		setResetCheckboxes(<c:out value="${numOfAccounts}" />);
+	});
+
+	function zebraStripeTables() {
+		$("tr:nth-child(odd)").addClass("stripe");
+	}
+
+	function setResetCheckboxes(numOfAccounts) {
+		for (var i = 0; i < numOfAccounts; i++) {
+			var resetToDfltCheckboxName = "accountPreferencesBeans[" + i
+					+ "].resetToDflt";
+			var resetToDfltCheckboxElement = document
+					.getElementsByName(resetToDfltCheckboxName)[0];
+			resetToDfltCheckboxElement.checked = false;
+		}
+	}
+
+	function setDfltNickname(checkboxName, dfltNicknames) {
+
+		// Extract index from checkboxName
+		var firstIndex = checkboxName.indexOf("[");
+		var lastIndex = checkboxName.indexOf("]");
+		var idx = checkboxName.substring(firstIndex + 1, lastIndex);
+
+		var textFieldName = "accountPreferencesBeans[" + idx
+				+ "].accountNickname";
+		var textFieldElement = document.getElementsByName(textFieldName)[0];
+
+		var resetCheckboxFieldName = "accountPreferencesBeans[" + idx
+				+ "].resetToDflt";
+		var resetCheckboxElement = document
+				.getElementsByName(resetCheckboxFieldName)[0];
+
+		textFieldElement.readOnly = false;
+		textFieldElement.style.backgroundColor = "#FFFFFF";
+		textFieldElement.value = dfltNicknames[idx];
+		resetCheckboxElement.value = "true";
+	}
+
+	function deselectDefault(idx) {
+		var checkboxFieldName = "accountPreferencesBeans[" + idx
+				+ "].resetToDflt";
+		$("input[name='" + checkboxFieldName + "']").attr('checked', false);
+	}
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<%@ taglib uri="http://www.springframework.org/tags" prefix="spring"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt"%>
+
+<spring:hasBindErrors name="${formName}">
+	<div class="error width1">
+		<p class="ul">Error(s):</p>
+		<ul>
+			<c:forEach var="error" items="${errors.allErrors}">
+				<li><spring:message message="${error}" /></li>
+			</c:forEach>
+		</ul>
+	</div>
+</spring:hasBindErrors>
+
+<c:if test="${not empty successMessage}">
+	<p>
+		<fmt:message key="${successMessage}" />
+	</p>
+</c:if>
+
+<c:if test="${not empty warningMessage}">
+	<div class="messageImportant width2"
+		style="clear: left; margin-top: 10px; padding: 5px 10px;">
+		<fmt:message key="${warningMessage}" />
+	</div>
+</c:if>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@RequestMapping(value = { "/myprofile/updateAccountPreferences", "/mobileapp/updateAccountPreferences" })
+	public String updateAccountPreferences(@ModelAttribute("accountPreferencesForm") @Validated AccountPreferencesForm form, BindingResult result,
+			HttpServletRequest request) {
+
+		if (!result.hasErrors()) {
+			try {
+				updateShowHide(request, form);
+				updateNickname(request, form);
+				accountClientService.resetMemberProfile(new MemberSession(request));
+				request.setAttribute("successMessage", "service.account.preferences.updated");
+			} catch (Exception e) {
+				result.rejectValue("formErrors", "service.account.preferences.notsaved");
+			}
+		}
+		return "account.preferences";
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
