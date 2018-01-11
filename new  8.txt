@@ -1,0 +1,90 @@
+Hi Seema,
+I found a few things to refactor now that we're in there adding stuff. Let me know if you have any questions. Thanks,
+
+src/main/java/org/rbfcu/projectview/controller/ProjectViewController.java
+ 	public ModelAndView jiraHome(HttpServletRequest request) {
+ 		ModelAndView mv = new ModelAndView("projectView");
+ 		ProjectViewForm projectViewForm = null;
+ 		try {
+-			projectViewForm = loadTicketDetails();
++			projectViewForm = loadTicketDetails("PR");
+      @pripley
+pripley 3 days ago Owner
+Rather than passing strings in this case, it would be better to pass an Enum that describes the string. Like "JiraProjectKey.PROJECT_REQUEST".
+
+But even better than doing that is to use separate method names, like you did for the IR one. So this would be loadPrTicketDetails.
+
+ @sdhital	Reply…
+src/main/java/org/rbfcu/projectview/controller/ProjectViewController.java
+@@ -114,7 +117,7 @@ public ModelAndView filteringTvView(HttpServletRequest request, @RequestParam(re
+ 				logger.debug(":: requestDept = " + requestDept + " :: prioritySet =" + prioritySet + "::sourceTicketID = " + sourceTicketId
+      @pripley
+pripley 3 days ago Owner
+there is a lot of copied code in this class. these 4 debug lines could be copied to a single log request method that takes 4 parameters. We should use {} place holders instead of the string concat. Search the wiki for log4j article.
+
+also the error handling is all copied. We should have a different message to the user for an authentication error. Also, those three lines could be copied to a single method and reused. logAndAddAuthError and logAndAddError
+
+Actually, I don't think we even added ldap authentication to this app did we? That auth error separation may not be needed.
+
+ @sdhital	Reply…
+src/main/java/org/rbfcu/projectview/controller/ProjectViewController.java
+@@ -168,32 +216,59 @@ private void sortTicketsByStatus(List<Ticket> tickets) {
+ 				new TicketRequestDeptSetComparator(), new TicketSourceTicketIdSetComparator()));
+ 	}
+ 
+-	private ProjectViewForm loadTicketDetails() throws AuthenticationException, JSONException {
+-		List<Ticket> sourceTickets = new ArrayList<Ticket>(jiraClientService.getProjectRequestIssues());
++	private ProjectViewForm loadTicketDetails(String key) throws AuthenticationException, JSONException {
+      @pripley
+pripley 3 days ago Owner
+This whole class is getting too big now. We should probably break up the /ir, /webteam into different controllers. But for now, it would probably be sufficient to push this method down into a PrTicketService like you did for the IRs. We should have consistency in our classes ... PRs and IRs should follow the same patterns.
+I'm also wondering if there should be a PrTicket and an IrTicket class, but you can leave them combined for now.
+
+ @sdhital	Reply…
+src/main/java/org/rbfcu/projectview/controller/ProjectViewController.java
+ 				if (StringUtils.isNotBlank(ticket.getPriority())) {
+ 					prioritySet.add(ticket.getPriority());
+ 				}
++				if (ticket.getIssueType() != null) {
+      @pripley
+pripley 3 days ago Owner
+the one above uses isNotBlank, and this one is !=null. Is there a reason for the difference? If not, then we should be consistent. One or the other for all of them.
+
+Rather than this if logic, this would be cleaner if we just used one of the default methods in StringUtils:
+https://commons.apache.org/proper/commons-lang/javadocs/api-3.1/org/apache/commons/lang3/StringUtils.html#defaultString(java.lang.String)
+
+ @sdhital	Reply…
+src/main/java/org/rbfcu/projectview/service/IrTicketsService.java
++		return filteredTickets;
++	}
++
++	private boolean isClosedAndMonthOld(Ticket eachTicket) {
+      @pripley
+pripley 3 days ago Owner
+Did you see if it was possible to do this in the initial query? As the IR queue grows, we'll see performance degradation over time if we do the filtering after we do the retrieval.
+
+jira_jql_proj_req_list_IR
+
+ @sdhital	Reply…
+src/main/java/org/rbfcu/projectview/service/JiraClientService.java
+@@ -26,9 +26,9 @@
+ 	private static String ENV = null;
+ 	private static final List<String> IGNORE_STATUS_LIST = Arrays.asList("Done");
+ 
+-	public List<Ticket> getProjectRequestIssues() throws AuthenticationException, JSONException {
++	public List<Ticket> getProjectRequestIssues(String key) throws AuthenticationException, JSONException {
+      @pripley
+pripley 3 days ago Owner
+we can define two different methods rather than passing in a key
+
+ @sdhital	Reply…
+src/main/webapp/resources/projecttvview.js
++	    "priority-pre": function ( name ) {
++	        var rankNumber;
++	        if (name == "High - 1st") {
+      @pripley
+pripley 3 days ago Owner
+rather than duplicating strings, is this better?
+if (name == rank[1]){
+
+or even better, replace the if statements with a loop, and if the strings match, then return the index.
