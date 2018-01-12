@@ -1,0 +1,10 @@
+if (StringUtils.isNotBlank(ticket.getPriority())) {
+					prioritySet.add(ticket.getPriority());
+				}
+				
+				
+				
+				prioritySet.add(StringUtils.isNotBlank(ticket.getPriority()) ? ticket.getPriority() : StringUtils.EMPTY);
+				
+				
+				StringUtils.defaultString(ticket.getPriority())
