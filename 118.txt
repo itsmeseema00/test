@@ -1,0 +1,1595 @@
+package org.rbfcu.netbranch.loanorigination.status.tasklistitems;
+
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.rbfcu.loanorigination.business.PersonalLoanApp;
+import org.rbfcu.loanorigination.business.PersonalLoanType;
+import org.rbfcu.loanorigination.business.PurposeType;
+import org.rbfcu.loanorigination.business.Task;
+import org.rbfcu.loanorigination.business.TaskType;
+import org.rbfcu.netbranch.loanorigination.common.bean.LoanConstants;
+import org.rbfcu.netbranch.loanorigination.status.bean.LoanFinalizationTask;
+import org.rbfcu.netbranch.loanorigination.status.tasklistitems.utility.LoanApplicationTaskListItemsUtil;
+
+public class PersonalLoanApplicationTaskListItemsMapper extends BaseTaskMapper {
+
+	@Override
+	protected boolean isMappedRequiredTask(Task task) {
+		return isLoanTermsConfirmationTask(task) || isReferenceRequiredTask(task) || isVerificationOfIncomeTask(task);
+	}
+
+	@Override
+	protected boolean isMappedGeneralTask(Task task) {
+		return isFirstPaymentDisclosureTask(task) || isLocUsageDisclosureForOverdraftTask(task) || isHolidayLoanFinalizationRequirementTask(task)
+				|| isPrimarySavingsDepositDisclosureTask(task);
+	}
+
+	@Override
+	protected LoanFinalizationTask buildMappedRequiredTask(Task task) {
+		LoanFinalizationTask loanFinalizationTask = null;
+
+		if (isConfirmationForLoanTermsNeeded(task)) {
+			loanFinalizationTask = buildLoanTermsConfirmationTask(task);
+
+		} else if (isReferenceNeeded(task)) {
+			loanFinalizationTask = buildLoanFinalizationTask(task);
+
+		} else if (isVerificationOfIncomeNeeded(task)) {
+			loanFinalizationTask = buildLoanFinalizationTask(task);
+
+		}
+
+		return loanFinalizationTask;
+	}
+
+	@Override
+	protected LoanFinalizationTask buildMappedGeneralTask(Task task) {
+		LoanFinalizationTask generalTask = null;
+
+		if (isFirstPaymentDisclosureNeedsToBeProvided(task)) {
+			generalTask = buildLoanFinalizationTask(task);
+
+		} else if (isLocUsageDisclosureForOverdraftNeedsToBeProvided(task)) {
+			generalTask = buildLoanFinalizationTask(task);
+
+		} else if (isHolidayLoanFinalizationRequirementNeedsToBeProvided(task)) {
+			generalTask = buildLoanFinalizationTask(task);
+
+		} else if (isPrimarySavingsDepositDisclosureNeedsToBeProvided(task)) {
+			generalTask = buildLoanFinalizationTask(task);
+
+		}
+
+		return generalTask;
+	}
+
+	@Override
+	protected List<Task> filterGeneralTasks(List<Task> generalTasks) {
+
+		boolean primarySavingTaskExists = false;
+		boolean firstPaymentTask35AExists = false;
+		boolean firstPaymentTask35MExists = false;
+
+		for (Task task : generalTasks) {
+			if (isPrimarySavingsDepositDisclosureTask(task)) {
+				primarySavingTaskExists = true;
+			} else if (isFirstPaymentDisclosureTask(task)) {
+				firstPaymentTask35AExists = true;
+			} else if (TaskType.FIRST_PAYMENT_PL1.matches(task.getTaskCode())) {
+				firstPaymentTask35MExists = true;
+			}
+
+		}
+
+		List<Task> filteredTaskListItems = new ArrayList<Task>();
+
+		for (Task task : generalTasks) {
+			if (TaskType.FIRST_PAYMENT_PL1.matches(task.getTaskCode())) {
+				if (firstPaymentTask35AExists) {
+					continue;
+				} else {
+					filteredTaskListItems.add(task);
+				}
+			} else if (TaskType.FIRST_PAYMENT_PL2.matches(task.getTaskCode())) {
+				if (firstPaymentTask35AExists || firstPaymentTask35MExists) {
+					continue;
+				} else {
+					filteredTaskListItems.add(task);
+				}
+			} else if (TaskType.PRIMARY_SAVING_ACCOUNT_PL1.matches(task.getTaskCode())
+					|| TaskType.PRIMARY_SAVING_ACCOUNT_PL2.matches(task.getTaskCode())) {
+				if (primarySavingTaskExists) {
+					continue;
+				} else {
+					filteredTaskListItems.add(task);
+				}
+			} else {
+				filteredTaskListItems.add(task);
+			}
+		}
+		return filteredTaskListItems;
+	}
+
+	@Override
+	protected List<Task> filterRequiredTasks(List<Task> requiredTasks) {
+
+		List<Task> filteredTaskListItems = new ArrayList<Task>();
+		boolean loanFinalizationSubmitted = false;
+		boolean automatedVoiExists = false;
+
+		for (Task task : requiredTasks) {
+			if (task.isCompleted()) {
+				if (isLoanTermsConfirmationTask(task)) {
+					loanFinalizationSubmitted = true;
+					break;
+				}
+			}
+		}
+
+		for (Task task : requiredTasks) {
+			if (TaskType.VOI_PL.matches(task.getTaskCode())) {
+				automatedVoiExists = true;
+				break;
+			}
+		}
+
+		for (Task task : requiredTasks) {
+			if (isLoanTermsConfirmationTask(task)) {
+				if (loanFinalizationSubmitted) {
+					continue;
+				} else {
+					filteredTaskListItems.add(task);
+				}
+			} else if (TaskType.VOI_MANUAL.matches(task.getTaskCode())) {
+				if (!automatedVoiExists) {
+					filteredTaskListItems.add(task);
+				}
+			} else {
+				filteredTaskListItems.add(task);
+			}
+		}
+		return filteredTaskListItems;
+
+	}
+
+	private boolean isConfirmationForLoanTermsNeeded(Task task) {
+		if (isLoanTermsConfirmationTask(task)) {
+			if (loanStatusInfo.getFundedStatus() != null
+					&& loanStatusInfo.getFundedStatus().equalsIgnoreCase(LoanConstants.FUNDING_STATUS_PROCESSING) && !loanStatusInfo.isLoc()) {
+				if (isApproved(loanStatusInfo)) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	private boolean isLoanTermsConfirmationTask(Task task) {
+		return TaskType.CONFIRM_TERMS_LOAN.matches(task.getTaskCode());
+	}
+
+	private boolean isReferenceNeeded(Task task) {
+		if (isReferenceRequiredTask(task)) {
+			PersonalLoanApp personalLoanApp = (PersonalLoanApp) loanApplication;
+
+			if (isApproved(loanStatusInfo)) {
+				if (PersonalLoanType.PERSONAL.equals(personalLoanApp.getPersonalLoanType().getCode())) {
+					if (personalLoanApp.getTier().compareTo(BigInteger.ONE) != 0 && personalLoanApp.getTier().compareTo(new BigInteger("2")) != 0) {
+						return true;
+					}
+				} else {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	private boolean isReferenceRequiredTask(Task task) {
+		return TaskType.REFERENCE_REQUIRED_PL.matches(task.getTaskCode());
+	}
+
+	private boolean isVerificationOfIncomeNeeded(Task task) {
+		if (isVerificationOfIncomeTask(task)) {
+			PersonalLoanApp personalLoanApp = (PersonalLoanApp) loanApplication;
+			if (LoanApplicationTaskListItemsUtil.isVoiRequired(personalLoanApp)
+					&& (PersonalLoanType.PERSONAL.equals(personalLoanApp.getPersonalLoanType().getCode()))) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private boolean isVerificationOfIncomeTask(Task task) {
+		return TaskType.VOI_PL.matches(task.getTaskCode());
+	}
+
+	private boolean isFirstPaymentDisclosureNeedsToBeProvided(Task task) {
+		if (isFirstPaymentDisclosureTask(task)) {
+			if (isApproved(loanStatusInfo)) {
+				if (PurposeType.CREDIT_BUILDER.getPurposeType().equalsIgnoreCase(loanStatusInfo.getPurpose())) {
+					return true;
+				} else if (new BigInteger("3").compareTo(loanStatusInfo.getTier()) == -1 && !loanStatusInfo.isLoc()
+						&& PersonalLoanType.PERSONAL.getCode().equals(loanStatusInfo.getPersonalLoanType())) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	private boolean isFirstPaymentDisclosureTask(Task task) {
+		return TaskType.FIRST_PAYMENT.matches(task.getTaskCode());
+	}
+
+	private boolean isLocUsageDisclosureForOverdraftNeedsToBeProvided(Task task) {
+		if (isLocUsageDisclosureForOverdraftTask(task)) {
+			if (loanStatusInfo.isLoc()) {
+				if (isApproved(loanStatusInfo)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	private boolean isLocUsageDisclosureForOverdraftTask(Task task) {
+		return TaskType.LINE_OF_CREDIT.matches(task.getTaskCode());
+	}
+
+	private boolean isHolidayLoanFinalizationRequirementNeedsToBeProvided(Task task) {
+		if (isHolidayLoanFinalizationRequirementTask(task)) {
+			if (PurposeType.HOLIDAY_LOAN.getPurposeType().equals(loanStatusInfo.getPurpose())) {
+				if (isApproved(loanStatusInfo)) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	private boolean isHolidayLoanFinalizationRequirementTask(Task task) {
+		return TaskType.HOLIDAY_LOAN.matches(task.getTaskCode());
+	}
+
+	private boolean isPrimarySavingsDepositDisclosureNeedsToBeProvided(Task task) {
+		if (isPrimarySavingsDepositDisclosureTask(task)) {
+			if (!PurposeType.REFINANCE_RBFCU_SIGN_LOAN.getPurposeType().equals(loanStatusInfo.getPurpose())
+					&& !loanStatusInfo.getPurpose().equalsIgnoreCase(PurposeType.PURPOSE_LINE_OF_CREDIT_INCREASE.getPurposeType())
+					&& !loanStatusInfo.isLoc()) {
+				if (isApproved(loanStatusInfo)) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	private boolean isPrimarySavingsDepositDisclosureTask(Task task) {
+		return TaskType.PRIMARY_SAVING_ACCOUNT_PL.matches(task.getTaskCode());
+	}
+
+	private LoanFinalizationTask buildLoanTermsConfirmationTask(Task task) {
+		LoanFinalizationTask loanFinalizationTask = buildLoanFinalizationTaskWithLink(task, LoanConstants.CLICK_HERE,
+				getUtilityMessage("confirm.terms.loan.display"), getUtilityMessage("confirm.terms.loan.mobile.display"), mobileAppMode);
+		String description = loanFinalizationTask.getDescription();
+		description = description.replace("{0}", loanApplication.getLoanId());
+		loanFinalizationTask.setDescription(description);
+
+		return loanFinalizationTask;
+	}
+}
+
+
+280
+
+
+
+
+
+# Optional header and footer for <errors/> tag.
+#errors.header=<ol>
+#errors.footer=</ol>
+#errors.prefix=<ol>
+#errors.suffix=</ol>
+
+#-- General messages (all screens) --
+errors.application=<p class="ul">Error(s):</p>
+error.field.required=Please enter a valid value for {0}.
+error.field.required.for=Please enter a valid value for the {0} for {1}.
+error.type.select=Please select a {0}.
+error.type.enter.select=Please enter/select a {0}.
+error.type.selectan=Please select an {0}.
+error.field.numeric=Please enter a number greater than zero in {0}.
+error.field.amount=Please enter a valid Amount (for example, 200 or 200.00).
+error.field.wronginput=Please enter a valid {0} ({1} digits).
+error.field.minlength=Please enter at least {0} characters for {1}.
+error.field.maxlength=Please enter no more than {0} characters for {1}.
+error.field.invalid=Please enter a valid {0}.
+error.field.exists=This username is not available. Please create a new username or choose from the options below. 
+error.field.invalid.for=Please enter a valid {0} for {1}.
+error.field.invalid.example=Please enter a valid {0} (for example, {1}).
+error.field.minvalue=Please enter a {0} greater than {1}.
+error.field.minvalue.greater.equal=Please enter a {0} greater than or equal to {1}
+error.field.maxvalue=Please enter a {0} less than {1}.
+error.field.range=Please enter a {0} between {1} and {2}.
+error.field.notsame={0} and {1} cannot be the same.
+error.field.specialchar=No special characters are allowed in {0}. You must enter only numbers and letters.
+error.field.alphaonly=No special characters nor numbers are allowed in {0}.
+error.field.numericonly=Please enter a value for {0} containing only numeric digits (no special characters).
+error.unavailable=The feature you are trying to use is currently unavailable.  Please try again later.
+error.retry=Please try again later.
+error.connection=Sorry, we are unable to process your request at this time. Please try again later.
+error.nomatch=We are unable to find any records with the information entered.
+error.field.confirm.match = The two {0} you have entered do not match.
+error.required.general = Please enter a valid value for required field.
+
+text.helpful.tips=Helpful Tips
+change.success=Your {0} has been successfully updated.
+
+#-- Struts Validator Error Messages --
+errors.required={0} is required.
+errors.maxlength={0} cannot be greater than {1} characters.
+errors.date={0} is not a date.
+errors.integer={0} must be a whole number.
+errors.double={0} must be a number with at least one decimal place.
+errors.email={0} is not recognized. Please enter a valid email address (for example, myname@yahoo.com).
+errors.range={0} is not in the range {1} through {2}
+
+#-- transfers --
+error.retrieve.active.transfer=We are currently unable to retrieve your active Transfers.  
+error.retrieve.update.transfer=We are currently unable to update your Transfer.
+error.retrieve.delete.transfer=We are currently unable to delete your Transfer.
+error.sameday.update.delete=Transfers that have 'Next Transfer Date' with today's date cannot be updated or deleted.
+csrf.detected = Error
+nbo.readonly.message=Access to some services is temporarily limited while our system undergoes routine maintenance.  All services will be available again as soon as possible.  We appreciate your patience as we complete these upgrades to provide you additional security, convenience, and value.   
+#-- account summary --
+account.summary.unavailable=Sorry, we are unable to display your account information at this time. Please try again later.
+accountsummary.hidden.accounts=Hidden Accounts
+#-- account activity --
+scheduled.transaction.note = Scheduled transactions may not be reflected in your current NetBranch Online balance until they are posted.
+pending.transaction.note = Pending transactions are subject to change. The transaction amount may differ when posted to your account.
+hold.transaction.note = Hold transactions are subject to change. The transaction amount may differ when posted to your account.
+mobile.scheduled.transaction.note = Not reflected in available balance.
+mobile.pending.transaction.note = Transaction amount may vary.
+mobile.hold.transaction.note = Transaction amount may vary.
+check.image.unavailable = Some check images may be unavailable due to the payee's check processing method. Please contact us for additional information.
+help.apy=APY means Annual Percentage Yield. 
+help.dividend.rate=Dividend Rate means the rate paid on an account, which does not reflect the effect of compounding.
+help.interest.rate=Interest Rate is the annual rate at which your loan accrues interest.
+help.days.payoff=Payoff Amount includes Interest, Insurance, and Late Charges (if applicable) to pay this loan in full {0} days from {1}.
+ 
+checkimage.range=Please enter a valid {0}. A maximum range of {1} days is supported. 
+checkimage.date.after=The Begin date cannot be after the End date.
+
+#-- Logon screen --
+username.failed=We are unable to update your credentials.  Please try again.
+pin.invalid=The information entered does not match what we have on file. Please contact the Member Service Center for assistance.
+username.new=Please sign in from the homepage to complete your online banking setup.
+password.limitexceeded=Unsuccessful login attempts exceeded.  You are currently locked out. Please contact the Member Service Center for assistance.
+auth.failed=The username or password you entered does not match the information we have on file. Please try again.
+password.failed=The password you entered does not match the information we have on file. Please try again.
+error.sqa.invalid=The information entered does not match what we have on file.
+
+#-- Password reset screen --
+ssn.invalid=The SSN is invalid. Please try again.
+
+#-- Password update screen --
+password.reused=Please do not reuse any of your previous passwords.
+password.length=The password must be 6 - 8 characters long.
+
+policy.containnumeric=contain a numeric character
+policy.alphastart=start with an alphabetical character
+policy.validchars=not contain invalid special characters
+policy.not.personal=not contain personal information (i.e. SSN, HAL pin, etc.)
+policy.validcharssize=be {0} - {1} characters long
+policy.ruleset=meet {0} of the following: 1 upper, 1 lower, 1 number, 1 symbol
+
+#-- Email update screen --
+error.promotional.email.required=Primary Email address required for sending promotional information.
+
+#-- Address update screen --
+address.zipCode2.wronginput=Please enter a valid zip code extension (4 digits).
+address.deleted=Your request to delete the address has been submitted successfully. Please allow us 1 business day to process your request.
+address.updated=Addresses have been updated successfully.
+address.deleteFail=Alternate address 1 is required when Alternate address 2 is present.
+
+#-- Loan application screen --
+loanappl.ssn=Social Security number
+
+#-- Loan application RPG codes
+loanappl.jointssninvalid=The co-applicant's SSN you entered is not with our membership.
+#-- Share certificate details screen
+error.term.required=Please select a Term.
+error.dividendAcct.required=Please select where you would like Dividends Paid To.
+error.maturity.date.required=Please enter a valid Maturity Date.
+error.amount.Invalid=Please enter a valid Deposit Amount. The minimum amount per certificate is {0}.
+error.cert.exceed.balance=The Certificate Amount entered exceeds the available balance for the transfer account selected.
+error.cert.transferExceedsMinBalance=At least $5 must remain in the IRA account at all times.
+error.transferAcct.required=Please select a Transfer Funds From account.
+error.field.Invalid={0} is Invalid. 
+error.renewOption.required=Please select a Renewal Option.
+error.renewal.field.invalid = Please enter a valid {0}.
+error.indicator.required = Increase/Decrease indicator is required if amount is entered. 
+error.renewal.amount.invalid = Please change the {0}. Certificate amount should be within $1,000 and $1,000,000. 
+error.renewal.generic = We are unable to complete your request. Please try again later or call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+error.deposit.account.invalid = The funds for this certificate(s) can only be deposited into the account(s) {0} on closing. Please change your selection for '{1}' field.
+#-- Secure Message Screen --
+error.category.required=Please select a secure message category.
+error.subject.required=The Subject is required.
+error.message.required=The Message is required.
+error.account.required=Please select a reference.
+securemsg.notfound=The secure message is not available. Please try resending your message or call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+securemsg.notsent=An error occurred while processing your request. Please try again later. If you continue to experience this issue, please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+securemsg.notsent.order.check=There was an error processing your request to order checks and/or Freedom cards. Please send a secure message to our Member Service Center or call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+#-- master card summary (and account summary) 
+mastercardsummary.currentbalance=Current balance may not reflect your most recent transactions.
+mastercardsummary.amountdue=Amount due is from your last statement. If already paid, no further payment is required.
+#-- loan summary (and account summary) 
+loansummary.principalbalance=Principal balance may not reflect your most recent transactions.
+loansummary.duedate=Due Date may not reflect your most recent transactions.
+#-- Transfer funds --
+accttoacct.genericerror=We are unable to complete the transaction. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+transferfunds.sameaccount=The "From" and "To" accounts cannot be the same. Please try again.
+transferfunds.selectaccount=Please select a {0} account.
+transferfunds.selectaccounttype=Please select a {0} type.
+accttoacct.notavailablebal=The transfer amount is more than the available balance. Please enter an amount less than the available balance.
+transferfunds.realtimeDuplicateTransfer=Would you like to make another transfer?
+transferfunds.duplicateTransfer=This transfer matches an existing transfer.
+transferfunds.update.duplicateTransfer=Would you like to update another transfer?
+transferfunds.update.notEditable=We are unable to update this transfer. If you would like to update it, please delete this transfer and create a new one.
+transferfunds.amountlimit=The amount requested exceeds the limit.
+accttoacct.invalid.recipient=We are unable to validate the recipient's account information.
+
+accttoacct.accountclosed=We are unable to complete the transaction. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+accttoacct.notenabled=Transfers to other RBFCU account holders have been disabled on your account. To enable transfers to other account holders, send us a secured message or contact the Member Service Center at 1-800-580-3300.
+accttoacct.notenabled.fullsite=Transfers to other RBFCU account holders have been disabled on your account. To enable transfers to other account holders, send us a secured <a href="/NBO/secureMessages/createMessage">message</a> or contact the Member Service Center at <nobr>1-800-580-3300</nobr>.
+accttoacct.notenabled.mobileApp=Transfers to other RBFCU account holders have been disabled on your account. To enable transfers to other account holders, send us a secured message or contact the Member Service Center at 1-800-580-3300.
+
+accttoacct.statusterminal=We are unable to complete the transaction. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+accttoacct.unabletovalidate=We are unable to validate the recipient's account information.
+transferfunds.favorites.genericerror=The account number or the nickname is already in your favorites list.
+transferfunds.favorites.error.accexists=The account number is already in your favorites list.
+transferfunds.favorites.error.nickexists=The nickname is already in your favorites list.
+transferfunds.favorites.added="{0}" has been added to your favorite transfer account list.
+transferfunds.favorites.updated=Your favorite has been updated.
+transferfunds.favorites.deleted=Your favorite has been deleted.
+transferfunds.recurring.frequency.required=Please select a value for Frequency.
+transferfunds.recurring.frequency.invalid=Please select a valid Frequency.
+transferfunds.recurring.date.required=Please enter or select a value for Start Date.
+transferfunds.recurring.date.early=Start Date must be later than today.
+transferfunds.recurring.date.after=Start Date cannot be set to a date that far in advance.
+transferfunds.recurring.date.invalid=Please enter a valid Start Date (format: mm/dd/yyyy).
+transferfunds.recurring.date.match1stor15th=Start Date must be the 1st or 15th for the selected frequency.
+transferfunds.recurring.date.matchSemiMonthly=Start date is invalid for selected frequency or it is too far in advance. 
+transferfunds.recurring.frequency.masterCardInvalidAmountType=Frequency must be set to "Monthly" or "One Time" for the selected amount type.
+transferfunds.recurring.frequency.loanInvalidAmountType=Transfer must be set to "One Time" for the selected amount type.
+accttoacct.all.available.balance.exists=A transfer is already set up to move all of the available balance from this account type.
+accttoacct.active.transfers.present=We are unable to disable this service because you currently have scheduled transfers set up that are affected by this service. Before you can disable this service, all affected scheduled transfers must be deleted.
+accttoacct.loan.homeequity.mismatch=This loan transfer must be equal to the scheduled payment, due date & frequency.
+accttoacct.REPayUnder=The loan payment should be greater than or equal to the scheduled payment ${0}.
+accttoacct.REnotFreqM=The payment frequency for this loan must be "Monthly" or "One-Time".
+accttoacct.LNSchPmtNE=The scheduled payment on this loan is ${0}. By submitting, you acknowledge that the transfer amount is less than the scheduled payment. \
+ You are financially responsible for the full payment by the due date. If full payment is not received within 15 days of the due date, you may be charged a late fee. 
+accttoacct.LNSchDatNE=In order to enable scheduled or recurring transfers, your loan cannot have a past due balance. Please make a payment of ${0} to bring your loan to current status so you may make scheduled or recurring transfers in the future.
+accttoacct.LNSchDatPast.warning=The scheduled due date is {0}. You are financially responsible for full payment on the scheduled due date.  If payment is not received within 15 days of the scheduled due date, you may be charged a late fee.
+accttoacct.MTGLN.SchDatPast=Principal Only payment option is not available for past due loans. Please choose the Scheduled Payment option.
+accttoacct.additional.payment.warning=This loan is scheduled for automatic payments. By submitting, you will make an additional payment.
+transferfunds.last.transfer=By submitting, you acknowledge that you are deleting the last recurring transfer for this loan.
+accttoacct.loan.transfer.addition=We are unable to set up a transfer to this loan, a transfer has already been set up for it.
+accttoacct.unable.validate=We are unable to complete the transaction. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+transferfunds.exceeds.balance=A transfer of ${0} will be made to the loan. This may result in the payoff/paydown of your loan.
+accttoacct.exceeds.transfer.limit=We are unable to complete this transaction. The transfer limit has been exceeded.
+accttoacct.no.payment.due=No payment is due at this time.
+accttoacct.transfer.no.accounts=There are no accounts available for transfer. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+accttoacct.blindtransfer.amount.limit=We are unable to setup this transfer. The transfer amount limit has been exceeded. 
+accttoacct.transfer.genericerror=We are unable to complete the transaction.  Please call our NetBranch Services Department at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+accttoacct.transfer.99999=The limit on the number of transfers for your account has been exceeded. Per federal regulations, additional transfers can be done in person at a branch location, at an ATM machine, or by mail request. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) if you have any questions.
+accttoacct.transfer.48=The available credit is less than the transaction amount you entered. 
+accttoacct.transfer.14=Payment exceeds loan balance. To payoff your loan please choose the Payoff Balance option.
+accttoacct.transfer.26=Payment exceeds loan balance. To paydown your loan please choose the Paydown Balance option.
+accttoacct.transfer.50=We are unable to complete this type of payment via NetBranch.  Please call our Member Service Center  at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) or send in a secured message to complete the transaction.
+accttoacct.transfer.51=Your loan is paid more than 2 months in advance and we are unable to process your payment through NetBranch at this time. Please resubmit as a principal only payment or for further assistance please contact Mortgage Servicing @ 210-945-3300 or 800-580-3300 extension 11419.
+accttoacct.transfer.heloc=Your HELOC loan is already paid out 2 months in advance.  We are unable to process your payment through NetBranch.  For further assistance please contact Mortgage Servicing @ 210-945-3300 or 800-580-3300 extension 11419.
+accttoacct.transfer.525=Balance is less than Minimum Allowed
+accttoacct.transfer.505=The limit on the number of transfers for your account has been exceeded. Per federal regulations, additional transfers can be done in person at a branch location, at an ATM machine, or by mail request. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) if you have any questions.
+accttoacct.transfer.ach.confirmation=In conjunction with my original Automated Clearing House origination request, I hereby notify Randolph-Brooks Federal Credit Union that this authorization has been revoked. I understand that no further entries will occur after such time and manner as to afford Randolph-Brooks and the Receiving Depository Institution a reasonable opportunity to act on it.
+accttoacct.LOCPayment.Invalid=To proceed with this loan payment please select the 'Amount Due' option.	
+accttoacct.payment.construction.loan=We are unable to complete the transaction. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.	
+#-- Money Market --
+error.accountType.required=Please select an Account Type.
+error.amount.required=Please enter an Amount.
+moneymkt.notavailablebal=There are insufficient funds on the selected account.
+error.moneymkt.lockout.acct=Unable to process your request. Please contact our Member Service Center at 210-945-3300(San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance. 
+#-- Amount validation for Open Savings and Money Market 
+Error.MinBalance=Deposit Amount should not be less than Minimum Balance.
+Error.MinDeposit=Deposit Amount should not be less than Minimum Deposit Amount.
+#-- MasterCards --
+mccards.none=No active MasterCard was found for this account.
+mcadvance.notavailablecredit=The available credit is less than the transaction amount you entered.
+mctransfer.notavailablecredit=The available credit is less than the transaction amount you entered.
+mctransfer.cardname.required=Name of credit card or payee for {0} is required.
+mctransfer.cardholdername.required=Name of account holder for {0} is required. Enter the name of the person who has this account.
+mctransfer.cardnumber.required=Account number for {0} is required.
+mctransfer.cardnumber.invalid=Account number for {0} is invalid.
+mctransfer.cardnumber.rbfcu=The credit card {0} is an RBFCU credit card. Balance transfer from a non-RBFCU card alone is permitted.
+mctransfer.cardnumber.same=The account numbers {0} can't be the same.
+mctransfer.address.required=The payment address for {0} is required.
+mctransfer.city.required=The city for {0} is required.
+mctransfer.state.required=The state for {0} is required.
+mctransfer.zip.required=The zip for {0} is required.
+mctransfer.zip.invalid=The zip for {0} is invalid
+mctransfer.address.invalid=Address {0} is invalid.
+mctransfer.address.error.building=The House or Building Number or PO Box you entered {0} cannot be found.
+mctransfer.address.error.anv={1} {0}.
+mctransfer.experian.error.mlt=Multiple addresses match {0}.  Please select the correct address from the list or 'NONE OF THE ABOVE' to continue on with the address entered.
+mctransfer.experian.error.nda=Our system recognized the address entered {0} as a nondelivery address. Please verify address and click Next.
+mastercard.generic.error=We are unable to complete your transaction. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+mastercard.try.later=An error occurred while processing your request. Please try again later. If you continue to experience this issue, please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+mastercard.already.activated=Our records show your card ending in ({0}) has already been activated. If you are experiencing difficulties with using your card, please contact us. 
+mastercard.status.freeze.error=Your card is currently frozen and will need to be reactivated to request a cash advance. To unfreeze your card, choose "Manage Cards," then "Unfreeze card."
+#-- Loan payment --
+advance.duplicateAdvance=Would you like to make another advance?
+
+#-- Loan Rates
+loanrates.category.invalid=The category you requested is an invalid loan category.
+loanrates.generic.error=An error occured while getting the rates. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+
+#-- First time logon
+page.firstlogon.message.primary = Please enter your Primary email address:
+page.firstlogon.message.secondary = Please enter your Secondary email address:
+page.firstlogon.message.text = Please enter your Text Message device email address:
+
+#-- Line Of Credit
+LOCaddon.genericerror=We are unable to complete the transaction. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+
+#-- Transaction history  //TODO PDR - should be using this
+transactions.none=No transaction history was found for this account.
+
+mfa.answer.wrong=The answer you entered is incorrect.
+
+#-- Skip a Pay messages
+skipapay.noloan.selected=No eligible loan selected for skip a pay request.
+skipapay.phone.required=Please enter the best phone number to reach you if we have questions.
+skipapay.processing.error=We are unable to process the Skip-A-Pay request.  We apologize for the inconvenience. Please try again later. If you continue to receive this error, please call our Consumer Lending Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+skipapay.previous.payment.required=Thank you for your interest in using Skip-A-Pay. Your previous month's payment must be paid in full before you are eligible to skip your next month's payment. If you believe you are receiving this message in error, please contact the Consumer Lending Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free).
+skipapay.under.review=Our records indicate you have already submitted a Skip-A-Pay request for this loan on {0}, and that your request is currently pending.  
+
+#-- Transaction Download messages
+error.date.required=Please enter or select the '{0}' date.
+error.format.required=Please select your financial software.
+error.date.invalid=Please enter a valid '{0}' date (format: mm/dd/yyyy).
+error.date.range.invalid=Please enter a valid date range.
+error.date.range.required=Please enter or select a date range.
+error.date.range.future=Transactions are not yet available for today or a future date.
+error.account.required=Please select an account.
+
+#-- ACH/Wires/WU messages
+error.date.start.required=Please enter or select a value for Start Date.
+error.date.start.invalid=Please enter a valid Start Date (format: mm/dd/yyyy).
+error.date.start.too.early=The Start Date must be at least {0} business days from today.  Please enter a different date.
+error.date.start.too.late=The First Date to Transfer cannot be set more than 1 year in the future.  Please enter a different date.
+error.date.start.holiday=Start Date cannot be on a holiday or weekend.
+error.routing.number.cannot.be.rbfcu=In order to transfer to another Randolph-Brooks Federal Credit Union account please select the Within RBFCU Transfer Type option.
+error.correspondent.routing.number.cannot.be.rbfcu=Randolph-Brooks Federal Credit Union is not an Intermediary Financial Institution.  Please enter a different Intermediary Routing Number.
+error.routing.number.cannot.be.same=The routing number for the Beneficiary Financial Institution cannot be the same as the Intermediary Financial Institution.
+error.amountplusfee.exceedsavlbalance=The amount of the request cannot exceed the amount of funds available in the account plus the related fee.  Please enter a different amount.
+error.nofundsavl=There are no funds available in your account(s) to complete this transaction.  Please contact the Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) if you have questions.
+error.duplicate.submit=Your request has already been sent.  If you would like to send a new request, click the 'Send' link on the left.  Please contact the Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) if you have questions.
+error.ach.disclosure.accept=Please accept the disclosure before submitting your request.
+error.loc.recurring.transfer.ach=To schedule an Incoming Electronic Funds Transfer to a Line of Credit for a frequency other than one time please send a secure message.
+error.reloan.recurring.transfer.ach=The payment frequency for this loan must be "Monthly" or "One-Time".
+error.homeequity.recurring.transfer.ach=This loan transfer must be equal to the scheduled payment, due date & frequency.
+
+#-- ESign messages
+error.agreement.required=You must accept the RBFCU eDocuments Agreement.
+enrollment.exits = You are currently enrolled to receive these documents online:
+
+#--LoanFinalization Template
+error.task.routing.number.cannot.be.rbfcu=In order to transfer from another RBFCU account please select Auto Pay from an RBFCU account as your preferred payment method.
+error.indicate.insurance=Please select 'Yes' or 'No' for more information on RBFCU products.
+finalization.duplicate.submission=Our records indicate you have submitted your loan terms. Your request is currently under review.
+
+document.preference.text.step1=Selection
+document.preference.text.step2=Terms 
+document.preference.text.step2.skipped=Terms (skipped)
+document.preference.text.step3=Verification
+document.preference.text.step3.skipped=Verification (skipped)
+document.preference.text.step4=Confirmation
+esign.accept.unchecked=You must accept the eDocuments Terms & Conditions in order to continue.
+esign.preference.updated = Your contact preferences have been updated.
+esign.preference.deleted = Your email has been deleted successfully.
+
+#Esign terms
+esign.voluntary.message=You voluntarily elect to receive any document or disclosure provided by Randolph-Brooks Federal Credit Union (RBFCU) online, here in after, referred to as eDocuments, via email, text message or any other electronic means provided by the credit union, as described in these terms and conditions. The eDocuments include:
+esign.edocuments.include=<ul><li>Electronic Statements<ul><li>Monthly or Quarterly Account Statements</li>\
+<li>Annual Roth IRA or IRA Statements</li></ul></li>\
+<li>Annual Notices<ul><li>Confirmation of  Account Notice</li>\
+<li>Privacy Statement</li></ul></li>\
+<li>Account Notices<ul><li>Overdraft Notices</li>\
+<li>Security Notices</li>\
+<li>Courtesy Pay Notices</li>\
+<li>Safe Deposit Box</li>\
+<li>Certificate Renewal Notices</li></ul></li>\
+<li>Loan Notices<ul><li>Loan Disclosures</li>\
+<li>Loan Change in Terms Notice</li></ul></li>\
+<li>General Notices<ul><li>Any other notice or mailer the credit union normally makes available via the postal service, including any change in terms notices</li></ul></li>\
+<li>Tax Forms<ul><li>1099 Forms</li>\
+<li>5498 Forms</li>\
+<li>1098 Forms</li></ul></li></ul>\
+<p>*Note: Not all of these eDocuments are available today for electronic delivery. As the documents become available electronically, you will be notified.</p>
+
+esign.estatement.message=An eStatement is an online version of your statement from RBFCU that can be displayed on a personal computer monitor and printed as needed.
+esign.estatement.access.message=After you have enrolled in the eStatement service, we will notify you at the email address you specify when your statement is available to view online. \
+ 								You can access your eStatement by going directly to NetBranch at www.rbfcu.org. After you log on to NetBranch Online, click the eStatements link and then select a statement. \
+ 								Additional personal identification numbers (PIN) or passwords are not necessary.
+esign.electronic.disclosure=You agree to accept all your statements and disclosures related to your statements online. \
+						    Your eStatements will look similar to the printed statements you currently receive. \
+						    Envelope enclosures, such as our monthly newsletter and marketing literature, will be available to you online on the \
+						    eStatement Menu and will be provided to you in the PDF format.
+esign.system.require=You acknowledge that you have access to a computer that has a current and up-to-date browser for your operating system.
+
+esign.system.require.noa=You acknowledge that you have access to a computer that meets the minimum operating system requirements as outlined in the  \
+ 					RBFCU NetBranch Browser Requirements.
+
+esign.hardware.message=If we change the hardware or software used to transmit your account documents electronically, \
+			and if our change may materially affect your ability to receive, access, or retain your eDocuments, \
+			we will notify you in advance of the changes by global message via NetBranch Online. 					
+esign.limited.delivery.message=You acknowledge and agree that by requesting eDocuments, you will no longer receive paper copies of those documents. 					
+esign.paper.statement.message=To retain a paper copy of your eDocument for future reference, you acknowledge that you have, or have access to, \
+			a printer capable of printing copies of your eDocuments. If your computer or printer is not working properly, \
+			or if for some other reason you are unable to print your eDocuments, you have the right to request a copy of your document, \
+			we may choose to charge you a nominal fee. Refer to your Membership and Account Agreement for a listing of all fees. \
+			You may secure a replacement copy by:  					
+esign.statement.retention=After you are enrolled to receive eDocuments, your statements will be archived on NetBranch Online and available for your review for 24 months from the first date each eStatement is made available. 					
+esign.address.update=You agree to specify a valid email address for eDocument notifications. You are encouraged to provide a secondary email address, \
+			different from the primary address, to be used as a back-up in the event delivery to your primary address fails. \
+			Should you change your email address(es) after enrollment, you agree to update it using the link on the eStatements Menu before the last day of the month \
+			to avoid any interruption in your eDocuments service.					
+esign.email.returned=If we send email notification that your eDocument is available and the email is returned undeliverable for any reason \
+			and you only have one email address on file, we will send you a paper notification via the postal service of the email failure \
+			as well as a secure message within NetBranch Online. If you have a primary and secondary email address on file and the primary email notification \
+			is returned undeliverable for any reason, an email notification that your eDocument is available will be sent to the secondary email address. \
+			If the secondary email address is returned for any reason as well, you will only be notified by secure message within NetBranch online of the returned email. \
+			Regulations prevent RBFCU from resending notification to the original email address a second time. 			
+esign.confidential.message=To protect your financial information, the email notification sent to you will refer to your RBFCU account by the nickname you designate during enrollment. \
+			Neither your account number nor any truncated portion of it will be used in the email message when the nickname is provided. \
+			We uphold the security standards detailed in the <a href="/NBO/myprofile/PrivacyPolicy.do">RBFCU Privacy Policy</a> and <a href="/NBO/myprofile/UserAgreement.do">NetBranch Online User Agreement</a> for all online transactions.											
+#
+esign.confidential.message.popup=To protect your financial information, the email notification sent to you will refer to your RBFCU account by the nickname you designate during enrollment. \
+			Neither your account number nor any truncated portion of it will be used in the email message when the nickname is provided. \
+			We uphold the security standards detailed in the <a href="/NBO/info.do?topic=privacy" title="Privacy Policy (opens new window)" onclick="openPopup(this.href);return false;">RBFCU Privacy Policy</a> \
+			and <a href="/NBO/info.do?topic=userAgreement" title="User Agreement (opens new window)" onclick="openPopup(this.href);return false;">NetBranch Online User Agreement</a> for all online transactions.									 
+esign.confidential.message.noa=To protect your financial information, the email notification sent to you will refer to your RBFCU account by the nickname you designate during enrollment. \
+			Neither your account number nor any truncated portion of it will be used in the email message when the nickname is provided. \
+			We uphold the security standards detailed in the RBFCU Privacy Policy and NetBranch Online User Agreement for all online transactions.											
+#
+esign.unauthorized.message=By agreeing to the terms and conditions set forth in this agreement, you acknowledge your responsibility to safeguard your NetBranch Online logon password. \
+			Should you choose to disclose your password to anyone else, or if your password is lost or stolen, third parties may be able to access your information. \
+			You agree not to hold RBFCU liable for any loss resulting from the unauthorized access and/or use of your eDocuments. \
+			If you believe your password has been stolen or compromised, please call the Member Service Center immediately at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free).
+esign.effective.time=After you are successfully enrolled to receive your documents online, your eDocuments service will remain in effect until cancelled by you or by RBFCU.							
+esign.withdraw.consent1=You may withdraw your consent and terminate this agreement at any time. You acknowledge, to cancel your enrollment you must go to the eDocuments Preference Page and click on the Cancel eDocuments button.					
+esign.withdraw.consent2=You will not be penalized or incur any fees when reverting to paper documents. You agree to provide a reasonable period of advance notice to allow RBFCU \
+			to resume the paper documents delivery via the postal service. A paper document furnished after the document date will be considered timely if furnished within 30 days \
+			after the date the withdrawal of consent is received by RBFCU. If you elect to discontinue eDocument service, online access and review of eStatements will be limited to \
+			any online statements archived less than 24 months.							
+esign.scope.cancellation=Should you voluntarily withdraw your consent; your cancellation applies to your eDocuments service and does not terminate any of your accounts or impair your relationship with RBFCU.							 					
+esign.termination.service=In the event that RBFCU believes online delivery of your document presents security or operational concerns, or if eDocuments delivery is no longer viable, \
+			you acknowledge that the credit union reserves the right to discontinue this service and will alternately provide you with paper documents.
+
+#Esign Confirmation
+esign.confirm.thank=Thank you for completing the enrollment process.
+esign.confirm.monthly=If you receive a monthly statement, your next eStatement will be available on 
+esign.confirm.quaterly=If you receive a quarterly statement, your next eStatement will be available on 
+esign.confirm.email=At that time you will receive an email (at the email address you specified) advising you that your eStatement is available to view online. \
+					You will also be notified by email when a document or disclosure is updated and ready for you to view.
+
+#Welcome Member Page
+congrats.message = Congratulations on joining the Randolph-Brooks family!
+lookforward.message = We look forward to serving you.
+
+#Travel Notification
+travel.date.before=The Start Date must be before the End Date.
+travel.location.required=Please enter a location.
+travel.message.limit=Your message exceeds the maximum length.
+
+#Close Money Market
+close.moneymarket.transfer=If you wish to transfer more than the available balance out of your Money Market, please visit the Account Summary page and select the Close Account link.
+close.moneymarket.invalidAccount=Please select a valid deposit account.
+
+#-- Report Lost/Stolen Card messages
+lostcard.field.nocards=No eligible Credit/Debit cards were found for this account.
+lostcard.generic.error=There was an error completing this request. If you need further assistance, please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free).
+lostcard.failure.error=There was an error completing this request. Please call 1-866-839-3485 to report Lost/Stolen card.
+error.managecard.nocardselected=No Card was selected.
+#-- Instant Deposit messages
+edeposit.overview.instruct = If you're looking for a fast and convenient way to deposit checks, look no further than eDeposits.
+edeposit.overview.instruct1 = You&#39;ll save money and time by securely making deposits from your home or office. <br/> To learn more, click on the Demo below or call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free).
+#--FAQ 
+edeposit.title.text = eDeposits Frequently Asked Questions
+edeposit.faq.question1 = What is eDeposits? 
+edeposit.faq.answer1 = A secure service that allows you to scan or photograph paper checks and electronically send the images to RBFCU for deposit.
+edeposit.faq.question2 = Who is eligible to scan deposits? How do I know if I am eligible? 
+edeposit.faq.answer2 = Members who meet the product requirements will have "Make eDeposit" in the "I want to" drop down menu on the Account Summary Page.  Members can also see if they qualify by going to their My Profile link in the top right hand corner of the page.  There members will select the "Member Services" link.  Under the eDeposits section, members will see whether or not they are eligible to make deposits online.  The basic requirements include having the account open for a minimum of 60 days and not having any derogatory information on the account (i.e. delinquent payments).  
+edeposit.faq.question3 = Do I have to purchase special software to use eDeposits?  
+edeposit.faq.answer3 = No, eDeposits is accessible to qualified members on NetBranch Online.
+edeposit.faq.question4 =What are the minimum system requirements necessary to use eDeposits?  
+edeposit.faq.answer4.part1 = The minimum supported environments include&#58;
+edeposit.faq.answer4.list1 = Internet Explorer 10&#43;;
+edeposit.faq.answer4.list2 = Firefox 41&#43;;
+edeposit.faq.answer4.list3 = Safari 8&#43;;
+edeposit.faq.answer4.list4 = Java runtime environment 1.7&#43;;
+edeposit.faq.answer4.list5 = High Speed Internet Connection;
+edeposit.faq.answer4.list6 = TWAIN Compliant Scanner.
+edeposit.faq.question5 =Can I use any home scanner? 
+edeposit.faq.answer5 =eDeposits uses the TWAIN specification for communicating with scanners. Most scanner software supports the TWAIN specification, but not all. For the latest information for specific scanners, enter eDeposits and click &quot;Help with Scanners and Drivers&quot; near the bottom of the New Deposit screen or consult with your scanner manufacturer for information on their support for TWAIN on your device.  
+edeposit.faq.question6 = How do I access eDeposits?
+edeposit.faq.answer6 = When you log into NetBranch Online, you will see the "I want to" dropdown column on the right hand side of your Account Summary page as seen below.  Each of your accounts has its own "I want to" dropdown menu.  Within the "I want to" dropdown menu on savings and checking accounts, you will see "Make eDeposit". 
+edeposit.faq.answer6.steps.instruct = You can start scanning your checks in 4 easy steps:
+edeposit.faq.answer6.step1 = Endorse the back of your check with your signature, the words &quot;For Deposit Only at RBFCU&quot;, your RBFCU Account Number where the funds will be deposited, the words &quot;via eDeposits&quot; and the date of the deposit.
+edeposit.faq.answer6.step2 = Log onto NetBranch Online.
+edeposit.faq.answer6.step3 = On the Account Summary page, click the "I want to" dropdown arrow to select "Make eDeposit" for the Savings or Checking account to deposit the funds.  The "I want to" dropdown is also located on the top of the Account Activity page. 
+edeposit.faq.answer6.step4 = Use the &quot;Choose Scanner&quot; button to choose the appropriate scanner if your computer does not pre-select it for you. Enter the total deposit amount. Then, using your own scanner, simply scan the front and back of the check and click the submit button to continue to the Deposit Review step. An email will be sent to you once your deposit has been submitted to the credit union for processing. Please store your check(s) in a safe place until you receive confirmation via the deposit history on NetBranch Online that your deposit has been accepted, and then destroy the check by shredding or another commercially acceptable means of data destruction.
+edeposit.faq.question7 = I scanned deposits before but now I do not see the eDeposits option in the "I want to" dropdown menu?  
+edeposit.faq.answer7 = RBFCU uses an automatic enrollment process based on pre-determined criteria. Every time you log into NetBranch Online, the system will determine product eligibility. A member&#39;s ability to use this service may be terminated without notice if they fail to meet the requirements or fail to comply with the requirements of the services. If you no longer meet the requirements, you will not be eligible to scan deposits, you will need to mail in your deposits or take them to a convenient branch location for deposit.
+edeposit.faq.question8 = Can any type of check be scanned for deposit?
+edeposit.faq.answer8 = No. You can only scan single-party domestic checks made payable to the owner(s) of the account. Savings Bonds, foreign checks, third party checks, checks written to you from another account of yours at RBFCU, items stamped with &quot;non-negotiable, incomplete checks, stale-dated or post-dated&quot; checks, any checks that contain evidence of alteration to the information, checks purported to be a lottery or prize winning and checks previously submitted for deposit are not acceptable for scanning. 
+edeposit.faq.question9 = When will my deposit be credited to my account?
+edeposit.faq.answer9 = Deposits scanned Monday through Friday from 6:30 a.m. until 7 p.m. and on Saturday from 8:30 a.m. until 4 p.m., Central Time on days the credit union is open should be credited on the same business day. Deposits scanned after those times should be credited on the next business day. There could be times that the program may flag a deposit for manual review and release by credit union personnel (i.e. image is not clear when received at the credit union). If this happens, you will see the deposit under the Deposit History tab as &quot;Submitted Deposit&quot; and you will not see the deposit reflected on NetBranch Online until credit union personnel has an opportunity to review and release the deposit. The manual review process should happen the same business day, the next business day at the latest.
+edeposit.faq.question10 = Do I need to include a deposit slip with my scanned check deposit?
+edeposit.faq.answer10 = No. The eDeposits program generates an electronic record with each deposit.
+edeposit.faq.question11 = How many checks can be included in one deposit? Can multiple deposits be submitted each day?
+edeposit.faq.answer11 = Up to 999 checks can be included in one deposit and multiple deposits can be submitted as long as the accumulated dollar amount of the deposit(s) does not exceed the daily deposit limit.
+edeposit.faq.question12 = How much is the deposit limit?
+edeposit.faq.answer12 = The default daily dollar deposit limit is &#36;5,000 and the monthly cumulative dollar deposit limit is &#36;50,000.  
+edeposit.faq.question13 = What fees are charged to use eDeposits services?
+edeposit.faq.answer13 = Members can enjoy the convenience of eDeposits without incurring a fee from the credit union. 
+edeposit.faq.question14 = Is the hold policy for checks different when they are scanned? 
+edeposit.faq.answer14 = No. The hold policy is defined in the Funds Availability Policy in the Membership & Account Agreement, which can be found on our website under &quot;About Us&quot;.
+edeposit.faq.question15 =What type of accounts can I scan deposits into? 
+edeposit.faq.answer15 = eDeposits can be made to your savings or checking account.
+edeposit.faq.question16 = What should I do with the check once it has been scanned? 
+edeposit.faq.answer16 = Store your check(s) in a safe place until you receive confirmation via the deposit history on NetBranch Online that your deposit has been accepted, and then destroy the check by shredding or another commercially acceptable means of data destruction.
+edeposit.faq.question17 = I scanned my check and clicked on continue and an hourglass is tumbling but nothing is happening. What&#39;s wrong?
+edeposit.faq.answer17 = If the browser hangs with an hourglass, this is caused by security software on your network blocking the outbound HTTPS connection of the ActiveX control. The ActiveX software uses a direct HTTPS connection to upload your check images for processing, and will not use a configured proxy server. For most users, this does not cause any problems. However, some users may have a non-transparent proxy that prevents this direct connection, and the browser may hang with an hourglass. The Java version of eDeposits properly uses your browsers proxy configuration and will correct this error.
+edeposit.faq.question18 = What if I encounter problems when the credit union is closed?
+edeposit.faq.answer18.part1= eDeposits is designed as an easy-to-use, self-service product. Select &quot;Help&quot; or 
+edeposit.faq.answer18.part2 = on each line of the process for a detailed explanation, helpful hints and a short video explanation of that process step.  
+edeposit.faq.question19 = How do I get a copy of my deposit?
+edeposit.faq.answer19 = If you click on the Deposit History Tab at the top right corner of the page, a listing of your scanned deposits will be displayed. If you click on the 
+edeposit.faq.answer19a = icon, you can view the deposit details along with a copy of the items included in that deposit. If you click on the 
+edeposit.faq.answer19b = icon, you can download a copy of the deposit and print it or save it to a file on your computer for your records.
+edeposit.faq.question20 = How long can I view my deposit history?
+edeposit.faq.answer20 = Deposit history is maintained for member review for 18 months. For deposit history more than 18 months old, you must contact NetBranch Services by secure message within NetBranch Online or by phone at 210-945-3774 or 1-800-580-3300. 
+edeposit.faq.question21 = The time on my computer and the time on my deposit do not match, is something wrong?
+edeposit.faq.answer21 = The time stamp on the deposits is in Eastern Standard Time although your computer will reflect the time zone you reside in. 
+edeposit.faq.question22 = How much time do I have to scan my deposits?
+edeposit.faq.answer22 = The eDeposits session will timeout after 20 minutes of inactivity. There is a Session timeout clock displayed on the top right corner of the screen. During the last five minutes of the session, the clock time will appear in red. Every time the page is changed, the clock refreshes.
+edeposit.faq.question23= I am trying to scan the back of my check and continue to receive an Image Quality Error, Image Too Light. What can I do? 
+edeposit.faq.answer23.part1 = Ensure you have properly endorsed the check. If not, delete the back image of the check you have scanned, endorse the item and rescan. If you have the proper endorsement on the check, it is possible your scanner is not detecting the whole check. You can try using the cropping feature below the scanned image within eDeposits, adjusting the brightness feature of your scanner, select &#39;custom&#39; image instead of &#39;color&#39; image if the option is available on your scanner or drawing dots on each corner of the check. Click on the 
+edeposit.faq.answer23.part2 =  next to the scan button for more detailed help for adjusting your scanner settings and for more detailed instructions about scanner and driver software.
+edeposit.faq.question24 = I have scanned the front and back of my check but it is giving me an error message that the size of the back and the front of the check do not match. How can I fix this?
+edeposit.faq.answer24.part1 = Proper cropping of check images is essential to ensuring that deposited checks are processed successfully. Most scanners allow images to be cropped by previewing the scanned image then moving the box to properly surround the check. Try placing the check on the border of the scanning screen to line up the front and back of the check so the scanner reads the size of the check the same way. Clicking on the
+edeposit.faq.answer24.part2 = below the scanned image screen will give you more detailed instructions for properly cropping a check.
+edeposit.faq.question25 = Can I request my daily/monthly deposit limit be increased?
+edeposit.faq.answer25 = Yes, you can contact NetBranch Services (Personal Accounts) or Business Services (Business Accounts) and we will do an account review to determine if an increase is needed. 
+#--Address Change
+experian.error.mlt=Multiple addresses match.  Please select the correct address from the list or 'NONE OF THE ABOVE' to continue on with the address entered.
+experian.error.nda=Our system recognized the address entered as a nondelivery address. Please verify address and click Next.
+#Contact preferences page
+page.contact.preference.delete=Delete
+page.contact.preference.saveTextAsCellPhone = Save text message device as mobile phone number.
+page.contact.preference.promo.instruct = If you prefer not to receive information via email, please uncheck the box.
+page.contact.preference.text.message=If your wireless carrier is not shown, please contact our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free). 
+page.contact.preference.text.instruct=Please enter the phone number of your Text Message device:
+page.contact.preference.privacy.link=<a href="/NBO/info.do?topic=privacy" title="Privacy Policy (opens new window)" onclick="openPopup(this.href);return false;">Privacy</a>&nbsp;|&nbsp;<a href="/NBO/info.do?topic=security" title="Security (opens new window)" onclick="openPopup(this.href);return false;">Security</a> 
+page.contact.preference.edeposit=A primary email address is required for this service
+page.contact.preferenc.enablePushNotifications=Keep me up-to-date by sending notifications on my mobile device.
+page.contact.preferenc.enablePushNotificationsOnMobile=Please Note: You must enable push notifications within your mobile device's settings in order to receive communications from RBFCU.
+
+
+contact.pref.error.carrier = Please select a carrier or select "Other" if you want to enter your full email address yourself.
+contact.pref.error.same.emails = Primary and Secondary e-mails cannot be the same.
+contact.pref.error.no.primary = Primary email address is required when secondary email address is present.
+contact.pref.error.promo = Primary email address is required when opting in to receive Promotional Information.
+
+open.checking.account.options=Please select a valid option.
+open.checking.account.disclosure=You must read the Disclosures to proceed with your application. Please click the agreement below to confirm.
+
+ola.error.jointssn.dupe=The Social Security Number of the co-applicant cannot be the same as the applicant.
+ola.error.notcertified=To continue, please certify that the information provided in this application is true.
+ola.error.preferred.invalid=Please enter a valid {0} since that is the Preferred Contact Method.
+ola.error.preferred.required=Please enter a value for {0} since that is the Preferred Contact Method.
+ola.error.incorrect.required=Please enter a 10 digit value as contact number.
+ola.error.duplicate.phone=Mobile, Home and Work Phone(s) cannot be the same.
+ola.income.certify.required={0} is required.
+ola.error.co.prohibited=Lending Products are not available on this type of account.  Please contact the Consumer Lending Call Center during regular business hours or choose a different co-applicant account.
+page.contact.loan.confirm.link=<a href = '#1' id = 'useDifferentEmail' >I would like to provide a different email address</a>
+loan.only.email.message=This will not update the email associated with your account, which is displayed above. This email address will only be used in conjunction with your loan application.
+ola.error.co.ineligible=<p> You are currently listed only as a joint owner of an account with RBFCU. Please be advised to finalize your loan will require that a primary savings account be opened for you as the primary account holder. To continue submitting your consumer loan application, please click here <a href = 'javascript:doOnSubmit();'>Loan Application</a><p> <br /> <p> Contact the Consumer Lending Call Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) during regular business hours if you need additional information or would like to set up a primary account in your name.</p>
+ola.error.open.minor={0} must be at least 18 years old.
+ola.error.question.not.answered=Please answer all the questions in order to submit the application.
+ola.error.event.date.not.provided=Please provide an approximate event date for the questions answered as Yes. 
+ola.error.event.date.in.future=Please provide an event date that is in the past.
+ola.error.event.date.too.past=Please provide an event date within the last {0} years.
+
+ola.error.mobileapp.co.ineligible=<p> You are currently listed only as a joint owner of an account with RBFCU. Please be advised to finalize your loan will require that a primary savings account be opened for you as the primary account holder. To continue submitting your consumer loan application, please click here <a href= 'javascript:doOnSubmit();'>Loan Application</a><p> <br /> <p> Contact the Consumer Lending Call Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) during regular business hours if you need additional information or would like to set up a primary account in your name.</p>
+ola.error.business.ineligible=<p>We are unable to process your online application at this time. Please contact a Business Solutions representative at 1-800-580-3300 ext. 53800 during regular business hours for additional information regarding the status of your application. </p>
+ola.error.mobileapp.business.ineligible=<p>this is for business ineligible.</p>
+ola.error.minor.ineligible=<p>Not eligible to apply, applicant is a minor.</P> 
+error.redirect.sso=We are unable to process your request at this time. Please contact the Consumer Lending Call Center during regular business hours.
+ola.error.ssn.incorrect.required=Please enter a 9 digit value as the Social Security Number.
+ola.invalid.year.new.vehicle=For new vehicle, the {0} must be equal to the current year or newer.
+ola.invalid.year.used.vehicle=For used vehicle, the {0} must be older than the current year.
+ola.invalid.loan.offer.code=The loan offer code entered is either invalid or has expired.
+ola.invalid.loan.product.type.offer.code=The selected Type of Loan/Product Type isn't eligible for the Loan Offer Code entered. Please change the Type of Loan/Product Type selected to the preapproved product listed above or click "Next" to proceed without preapproval.
+ola.invalid.loan.offer.code.for.product=The selected type of loan isn't eligible for the Loan Offer Code entered. Please apply for the preapproved product or proceed without the loan offer code.
+ola.none.or.both.drivers.license.info=When providing Driver's License information please provide both the Driver's License Number and State.
+ola.error.credit.card.required=Please select Credit Card. 
+ola.error.pledge.acct.required=Please select Pledge Account. 
+ola.error.loc.acct.required=Please select Line of Credit Account.
+ola.secured.certificate.asset.desc=(IMPORTED FROM GATEWAY,{0}) - IMPORTED FROM CMC BY External, Applicant.
+ola.error.available.bal=Please enter an amount less than the available balance.
+ola.error.credit.limit=Requested credit limit is less than the current credit limit. To reduce the credit limit please contact the Consumer Lending Call Center during regular business hours.
+ola.error.no.pledge.acct.share=To apply for this account, you must have an active savings account with RBFCU to secure the loan. Please contact our Member Service Center or open a Savings account online before proceeding with this loan application.
+ola.error.no.pledge.acct.certificate=To apply for this account, you must have an active Certificate of Deposit with RBFCU to secure the loan. Please contact our Member Service Center or open a Certificate account online before proceeding with this loan application.
+ola.loanstatus.error = We are unable to process your request at this time. Please contact the Consumer Lending Call Center during regular business hours.
+ola.certification=certify that all information provided in this application is true. You have my permission to verify and retain this information and to obtain a hard credit inquiry.I authorize you to use my credit report to consider whether to offer other products and services to me and I understand and specifically intend this authorization to apply to the current inquiry and future credit inquiries. You may receive information from others about my credit and you may answer inquiries from others seeking credit or experience information about me or my account with you. I understand additional information may be required to process this application.
+ola.credit.card.certification=grant RBFCU a lien and consensual security interest in all individual and joint accounts, present and future shares and deposits held in any accounts you have with us now and in the future to secure repayment of credit extensions made under this agreement. The granting of this security interest is a condition for the issuance of any card, which you may use, directly or indirectly, to obtain extensions of credit under this agreement. This does not apply to shares in an Individual Retirement Account or Simplified Employee Plan qualifying as such under the Internal Revenue Code. You authorize RBFCU to take money from any non-exempt account and apply it to what you owe, if you are in default. 
+ola.primary.certification=certify that all information provided in this application is true. You have my permission to verify and retain this information and to obtain a hard credit inquiry. I authorize you to use my credit report to consider whether to offer other products and services to me and I understand and specifically intend this authorization to apply to the current inquiry and future credit inquiries. You may receive information from others about my credit and you may answer inquiries from others seeking credit or experience information about me or my account with you. I understand additional information may be required to process this application. 
+ola.joint.certification=certify my intent for joint credit and that all information provided in this application is true. You have my permission to verify and retain this information and to obtain a hard credit inquiry. I authorize you to use my credit report to consider whether to offer other products and services to me and I understand and specifically intend this authorization to apply to the current inquiry and future credit inquiries. You may receive information from others about my credit and you may answer inquiries from others seeking credit or experience information about me or my account with you. I understand additional information may be required to process this application. 
+ola.joint.not.recognized=We do not recognize the joint borrower's SSN. Please provide additional detail on the co-borrower.
+ola.unavailable=At this time, your loan application cannot be processed online. Please contact our Consumer Lending Center by phone to complete your application, or try again at a later time.
+ola.error.neither.limit.increase.nor.lower.rate=Neither higher credit limit nor lower rate is being requested. 
+ola.error.joint.needed=Our records show that this card is jointly owned. Please provide joint details to proceed further.
+ola.error.business.credit.card=We are currently not able to make updates to your business credit card online. To request changes to your business credit card, please call the Business Services team at 1-800-580-3300 ext. 53800.
+ola.error.joint.not.authorized=The SSN you entered does not match the current joint cardholder's SSN. Please verify you are submitting the correct information.
+ola.loan.amount.includes.payoff.balance=The loan amount requested must include the current payoff balance on your existing loan.
+ola.credit.limit.includes.existing.limit=The credit limit requested must be greater than the current credit limit.
+ola.error.loan.amount.less.than.payoff.balance=The loan amount requested must be greater than the current payoff balance on your existing loan.
+ola.error.certificate.maturing.within.six.months=The certificate you have selected will mature within the next six months. Please contact our Consumer Lending department for assistance with your loan request at 1-800-580-3300.
+ola.error.certificate.maturing.before.term.months=The loan term you selected exceeds your certificate's maturity date of {0}. The maximum term allowed for this certificate is {1} months.
+ola.error.joint.owner.not.authorized=The SSN you entered does not match the current joint owner's SSN. Please verify you are submitting the correct information.
+ola.error.joint.owner.needed=Our records show that this loan is jointly owned. Please provide joint details to proceed further.
+ola.error.not.authorized.owner=Based on the log-in information you provided, you do not have authority to request changes on this loan. Please have the loan owner log in to their account and complete the request for changes.
+ola.error.ipad.creditcard=To apply for a credit card, please visit our full site on your desktop computer or your mobile device's internet browser. You may also contact the Consumer Lending Call Center during regular business hours.
+ola.error.ipad=To apply for this product, please visit our full site on your desktop computer or your mobile device's internet browser. You may also contact the Consumer Lending Call Center during regular business hours.
+ola.message.military.lending=For borrowers that are active duty or military dependents and covered by the Military Lending Act, you may call this number to hear how you are being protected: 1-844-342-7404. 
+ola.error.holiday.loan.max.term.12=Holiday Loans are available for terms up to 12 months. If you would like a longer term, please select another loan purpose.
+ola.error.interest.rate.disclosure.not.read=You must read the Interest Rates, Charges and Fees disclosure to proceed with your application. Please click the link below to read the disclosure.
+ola.error.business.card.master.agreement.not.read=You must read the CashBack Rewards Disclosure and MasterCard Agreement to proceed with your application. Please click the link below to read the disclosure.
+ola.primary.eloc.certification=certify that all information provided in this application is true. I understand additional information may be required to process this application.
+
+service.ESN.label=eDocuments
+service.CPAY.label=Courtesy Pay
+service.IDPRO.label=IDProtect
+service.IDPROPLUS.label=IDProtect&reg; Plus
+service.ALERT.label=eAlerts
+service.account.open.label=Open Account
+service.certificate.open.label=Open Certificate
+
+service.account.open.message=Open new Savings, Checking or Money Market account.
+service.mobileapp.account.open.message=Open new Savings, Checking or Money Market account.
+service.certificate.open.message=Open new share or IRA certificate.
+error.invalid.IDPRO.option={0} is not a valid IDProtect option.
+
+service.CPAY.enrollment.Y=Courtesy Pay is enabled for one or more account(s).
+service.CPAY.enrollment.N=Courtesy Pay is not enabled for any of your account(s).
+service.IDPRO.head=What you need to know about your current coverage
+service.IDPRO.enrollment.message.Base=You have IDProtect.
+service.IDPRO.enrollment.message.Employee=You have IDProtect.
+service.IDPRO.enrollment.message.OptOut=You have declined IDProtect on your account.
+service.IDPRO.enrollment.message.Premium=You have IDProtect.
+service.IDPRO.enrollment.message.Remove=IDProtect is not enabled.
+service.IDPRO.enrollment.message.REMOVE=IDProtect is not enabled.
+#service.IDPRO.enrollment.message.Waive=You are enrolled in a complimentary ID Protection service.
+service.IDPRO.enrollment.message.Waive=You have IDProtect.
+service.IDPRO.change.accept=I currently have IDProtect on my account.
+service.IDPRO.change.decline=I want to decline all IDProtect coverage on my account.
+service.IDPRO.change.upgrade=I want to <b>upgrade to</b> <a href="/NBO/info.do?topic=idProtect" title="opens new window" onclick="openPopup(this.href);return false;"><b>IDProtect Plus</b></a> on my account.
+service.IDPRO.notoffered.message=<b>If you choose to upgrade to IDProtect Plus, you will not have the option to downgrade to the standard IDProtect in the future. The standard product will no longer be available to you.</b>
+service.IDPROPLUS.head=What you need to know about IDProtect Plus
+service.IDPROPLUS.change.accept=I want to add IDProtect Plus on my account.
+service.IDPROPLUS.change.decline=I want to decline IDProtect Plus on my account.
+service.IDPROPLUS.register.message=<b>Complete your enrollment by registering on the IDProtect Plus site.</b>
+service.IDPROMOB.change.upgrade=I want to <b>upgrade to</b> IDProtect Plus on my account.
+service.IDPROMOB.notoffered.message=<b>If you choose to upgrade to IDProtect Plus, you will not have the option to downgrade to the standard IDProtect in the future. The standard product will no longer be available to you.</b>
+service.IDPROMOB.upgrade.message=<b>Upgrade now to IDProtect Plus.</b>
+service.IDPROMOB.register.message=<b>Complete your enrollment by registering on the IDProtect Plus site.</b>
+service.ESN.enrollment.message.true=eDocuments is enabled for your account.
+service.ESN.enrollment.message.false=eDocuments is not enabled for your account.
+service.ALERT.enrollment.message.Y=You have subscribed to one or more eAlerts.
+service.ALERT.enrollment.message.N=You have not subscribed to any eAlerts.
+service.ALERT.enrollment.message.C=You have not set your contact preferences.
+
+service.transfer.UNRELATED.status.notenabled=Transfers to other RBFCU account holders have been disabled on your account. To enable transfers to other account holders, send us a secured message or contact the Member Service Center at 1-800-580-3300.
+
+accttoacct.OTHER.FI.notenabled=Transfers outside of RBFCU have been disabled on your account. To enable this feature, send us a secured <a href="/NBO/secureMessages/createMessage">message</a> or contact the Member Service Center at <nobr>1-800-580-3300</nobr>. 
+accttoacct.mobileapp.OTHER.FI.notenabled=Transfers outside of RBFCU have been disabled on your account. To enable this feature, send us a secured message or contact the Member Service Center at <nobr>1-800-580-3300</nobr>.<a href="/NBO/mobileapp/secureMessages/createMessage">Send Secure Message</a><a href="tel:1-800-580-3300" class ="link">Call Us</a>
+
+service.ALERT.label.C=Certificate
+service.ALERT.label.D=Checking
+service.ALERT.label.L=Loan
+service.ALERT.label.S=Savings
+service.ALERT.label.M=Money Market
+
+!Bill Pay
+billpay.enrollment.checkbox=Please agree to the Terms and Conditions.
+billpay.enrollment.account=Please select an account number.
+billpay.nochecking.message=To enroll in Bill Pay, An Eligible Checking account is required.
+billpay.minor.message=To enroll in Bill Pay, The minimum age requirement is 18 years old.
+billpay.nophone.message=To enroll in Bill Pay, your primary phone or mobile number must be a US number. Please update your phone details <a href="/NBO/myprofile/changePhoneNumbers.do">here</a>, then try again.
+billpay.nophone.mobile.message=To enroll in Bill Pay, your primary phone or mobile number must be a US number. Please update your phone details, then try again.
+billpay.noemail.message=To enroll in Bill Pay, your primary email address is required. Please update your email address <a href="/NBO/myprofile/loadContactPref.do"/>here</a>, then try again.
+billpay.noemail.mobile.message=To enroll in Bill Pay, your primary email address is required. Please update your email address, then try again.
+billpay.nousa.address.message=To enroll in Bill Pay, your primary address must be a US address. Please update your address details <a href="/NBO/myprofile/loadMailingAddress">here</a>, then try again.
+billpay.nousa.address.mobile.message=To enroll in Bill Pay, your primary address must be a US address. Please update your address details, then try again.
+billpay.generic.error=There was an error completing your action or request. Please try again. If you need further assistance, please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free).
+
+locator.noresults=No locations were found within {0}mi. Please expand your search or modify your search criteria.
+
+lexisnexis.quiz.extraChance=An extra question is needed for verification.
+lexisnexis.quiz.time=You have {0} minutes to complete this quiz.
+lexisnexis.quiz.answer=Please select an answer for Question {0}.
+lexisnexis.quiz.fail=We were unable to verify your identity with the answers provided.
+lexisnexis.systemerror=We are unable to fully complete the identity verification process at this time.
+lexisnexis.FAIL=We were unable to identify you with the information entered.
+lexisnexis.OMITTED=We were unable to identify you with the information entered.
+lexisnexis.MULTIPLE_IDENTITIES_FOUND=We were unable to identify you with the information entered.
+lexisnexis.IDENTITY_NOT_FOUND=We were unable to identify you with the information entered.
+lexisnexis.PENDING=We were unable to identify you with the information entered.
+lexisnexis.COMPLETED=We were unable to identify you with the information entered.
+lexisnexis.SYSTEM_ERROR=We were unable to identify you at this time.
+lexisnexis.NOT_ENOUGH_DATA=We were unable to identify you with the information entered.
+lexisnexis.ABANDONED=We were unable to identify you with the information entered.
+lexisnexis.TIMED_OUT=We were unable to identify you at this time.
+lexisnexis.quiz.expired=The quiz you submitted has expired.
+
+username.reuse.error=The username you have entered is not available. Please choose another username.
+username.mobile.update=<p><em>To take advantage of username features, please be sure your phone has all current updates and you are using the latest version of RBFCU Mobile.</em></p>
+
+logon.lockedout=Your access to NetBranch Online has been locked because of too many consecutive unsuccessful logon attempts. To reset your account, we need to verify your identity.
+guest.logon.lockedout=Your access to NetBranch Online has been locked because of too many consecutive unsuccessful logon attempts. Please contact your business owner to update your login credentials.
+
+!Logon
+logon.notice.LOGOFF=<p>You have been successfully logged off.</p>
+logon.notice.TIMEOUT=<h3>Your session has expired...</h3><p>For your protection, you have been logged off.</p>
+logon.notice.ERROR=<p>There was an error completing your action or request. Please try again. If you need further assistance, please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free).</p>
+logon.notice.PROTECTED=<p>You must be logged in to access this feature.</p>
+logon.notice.USERNAME=<p class="error">All members on this account have registered for a username. Please logon with your username and password.</p>
+logon.notice.TOOMANY=<p class="error">Unsuccessful login attempts exceeded. You are currently locked out. Please contact the Member Service Center for assistance.</p>
+logon.notice.UPDATED=<p><strong>Your login information has been successfully updated. Please log on with your new credentials.</strong></p>
+logon.notice.INELIGIBLE=<p>There are no eligible members on this account. Please contact the Member Service Center for assistance.</p>
+logon.notice.NOTENROLLED=<p>This account is not enrolled for online use.</p>
+logon.notice.UNVERIFIED=<p class="error">We are unable to verify your identity online. Please contact our Member Service Center for further assistance.</p>
+logon.notice.NOACCOUNTS=<p class="error">No accounts were found for your credentials.</p>
+logon.notice.INVALIDEAGREE=<p>We are unable to process your request. Please contact the NetBranch Services Team for assistance.</p>
+logon.notice.MFAOTPLOCKOUT=<p class="error">Because we were unable to verify your identity, we have temporarily disabled online access to your account. Please contact us at <nobr>1-800-580-3300</nobr> to verify your identity and reinstate your access.</p>
+logon.notice.MFAOTPBUSINESSINVITEELOCKOUT=<p class="error">Because we were unable to verify your identity, we have temporarily disabled online access to your account. Please contact our Business Solutions Center at <nobr>1-800-580-3300, ext. 53800</nobr> to verify your identity and reinstate your access.</p>
+
+logon.notice.mobile.LOGOFF=<p>You have been successfully logged off.</p>
+logon.notice.mobile.TIMEOUT=<p>For your protection, you have been logged off due to inactivity.</p>
+logon.notice.mobile.ERROR=<p>There was an error completing your action or request.</p>
+logon.notice.mobile.PROTECTED=<p>You must be logged in to access this feature.</p>
+logon.notice.mobile.USERNAME=<p>All members on this account have registered for a username. Please logon with your username and password.</p>
+logon.notice.mobile.TOOMANY=<p>Unsuccessful login attempts exceeded. You are currently locked out. Please contact the Member Service Center for assistance.</p>
+logon.notice.mobile.UPDATED=<p>Your login information has been successfully updated. Please log on with your new credentials.</p>
+logon.notice.mobile.INELIGIBLE=<p>There are no eligible members on this account. Please contact the Member Service Center for assistance.</p>
+logon.notice.mobile.NOTENROLLED=<p>This account is not enrolled for online use.</p>
+logon.notice.mobile.UNVERIFIED=<p>We are unable to verify your identity online. Please contact our Member Service Center for further assistance.</p>
+logon.notice.mobile.NOACCOUNTS=<p>No accounts were found for your credentials.</p>
+logon.notice.mobile.UNAVAILABLE=<p>This feature is unavailable at this time.</p>
+logon.notice.mobile.INVALIDEAGREE=<p>We are unable to process your request. Please contact the NetBranch Services Team for assistance.</p>
+
+logon.header=NetBranch Online
+logon.legend=Access Your Account
+logon.usernamelabel=Username
+logon.passwordlabel=Password
+logon.submitlabel=Log On
+
+logon.header.LN=Loan Application Logon
+logon.legend.LN=NetBranch Online Logon
+logon.messages.LN=<p>To apply online for a loan, you need to be a member of Randolph-Brooks.</p><p><span class='bold'>Note:</span> For Real Estate or Home Equity loans, please view our <a href='/home-loans-realty'>mortgage loan application choices</a>.</p>
+
+logon.messages.EP=<p>To access Bill Pay, you must log on to NetBranch Online.</p>
+
+logon.legend.SN=Sign Up Now
+logon.messages.SN=<p>Sign up for free online access to your account.</p><p>Save time by conducting financial transactions online at any time with the security provided by NetBranch Online.</p>
+logon.usernamelabel.SN=Member Number
+logon.passwordlabel.SN=Last 4 of SSN
+logon.submitlabel.SN=Sign Up
+
+logon.messages.CHECKING=<p>Log on and directly view your checking details.</p>
+
+!Courtesy Pay
+courtesy.pay.prevent.update=Courtesy Pay selections made through NetBranch can only be changed once within a {0} day period.  If you need additional assistance please contact our Member Service Center at 210-945-3300 or 800-580-3300.
+courtesy.pay.invalid.acct=The account you have selected is not eligible for courtesy pay.
+courtesy.pay.saved=Courtesy Pay for account {0} has been set for {1} transactions.
+courtesy.pay.removed=Courtesy Pay has been removed for account {0}.
+courtesy.pay.update.error=We are currently unable to update your Courtesy Pay option. Please try again later.
+courtesy.pay.update.option.error=Please select correct courtesy pay option.
+
+
+address.error.anv={0}
+address.error.aive=Address information not verified, please enter correct address.
+address.error.building=The House or Building Number or PO Box you entered cannot be found.
+
+!Account Maintenance
+error.account.type.select=Please select an account type.
+error.application.type.select=Please select whether you want to open an individual account or a joint account.
+error.joint.owners.select=Please select joint owners for application.
+error.debit.card.link.account=Please select an account to link to your Debit Card.
+error.joint.owners.good.standing=No eligible joint owners were found. You may open an individual account or contact Member Services for more information.
+error.certificate.type.select=Please select a certificate type.
+error.account.creation=We are unable to create the account. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+error.account.maintenance.generic=We are unable to complete your request. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+error.account.initial.transfer=The account is created but an error occurred during the funds transfer. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+error.certificate.initial.transfer=The certificate is created but an error occurred during the funds transfer. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+error.certificate.maturity.date=Please provide the maturity date for the term {0} within the date range {1} to {2} (mm/dd/yyyy).
+error.certificate.maturity.date.fixed=The maturity date for the term {0} can be {1} (mm/dd/yyyy) only.
+error.transfer.account.select=Please select a source account to transfer funds.
+error.ira.savings.needed=You need to have an eligible IRA savings account to transfer the funds in order to open an IRA Certificate online.
+error.member.good.standing=You are not eligible for this service online. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+error.account.open.minor=The applicant must be at least 18 years old. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+error.account.transfers.count=You have exceeded the monthly transfer limit for your selected account. Per federal regulations, additional transfers can be made at a branch, ATM, or by mail request.
+error.accountgroup.addition=We are unable to add the certificate to the plan. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+error.account.closeout.transfer=Error occurred during the transfer from the money market account. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+error.account.closure=We are unable to close the account. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+close.moneymarket.generic.error=We are unable to complete your request. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+close.moneymarket.duplicate.request=Your Money Market account is already closed or pending closure.
+error.member.no.primary.savings=You must have a primary savings account in order to open other accounts/certificates online. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+error.overdraft.account.select=Opting for overdraft protection requires selection of at least one draw account.
+error.moneymarket.existing.allotment=The money market account is being used in pre-authorized transactions to/from some other account. Please call our Member Service Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance.
+error.account.total.transfers.count=Your transfer limit has been reached. Federal regulation limits this account to no more than six transfers per calendar month. By submitting this transaction, any additional transfers this calendar month will need to be made at a branch, ATM or by mail request.
+error.account.creation.recent.address.change=We need to verify recent account information updates to order your new card. Please contact our Card Services Center at 210-945-3300 or 1-800-580-3300 to confirm your account information is correct.
+
+!Phone
+error.phone.duplicate=Primary phone number and secondary phone number cannot be the same.
+success.phone.updated=Phone number was updated.
+success.phone.added=New phone number was successfully added.
+success.secondary.phone.deleted=We have received your secondary phone deletion request; the update will not be immediately visible on your account. Please allow up to one business day for the update to process. 
+success.cell.phone.deleted=We have received your deletion request; however, the update will not be immediately visible on your account. Please allow up to one business day for the update to process.
+success.phones.switched=You've selected to switch your primary/secondary phone number preference.
+!My Profile - Account Preferences
+error.nicknameIsBlank=Account nicknames cannot be blank.
+error.nicknameNotUnique=Account nickname {0} is not unique. Please provide a unique nickname.
+error.obscene.nickname=Account nickname {0} is inappropriate. Please provide a tasteful nickname.
+service.account.preferences.notsaved=Sorry, we are unable to save your account preferences at this time. Please try again later.
+service.account.preferences.message=Set or update your account preferences.
+service.account.preferences.label=Account Preferences
+service.account.preferences.updated = Your account preferences have been updated. Note that nicknames are shared by all account owners.
+#---Tax Info Message---
+tax.info.1099.inttax.header=1099-INT Tax Changes
+tax.info.1098.inttax.header=1098 Tax Changes
+tax.info.1099.primary.owner.text=The dividends earned on your primary accounts (shown above) will be furnished to the IRS under your SSN if the combined total is $10 or greater. You will receive a 1099-INT with this information to assist in tax reporting.
+tax.info.1099.joint.owner.text=The dividends earned on the accounts in which you are a joint owner (shown above), will be furnished to the IRS under the primary account holder's SSN. You will not need to report these earnings on your income taxes.
+tax.info.1098.real.estate.borrower.text=The interest paid on the Real Estate loan(s) listed above will be furnished to the IRS under your SSN. You will receive a 1098 Mortgage Interest Statement with this information to assist in tax reporting.
+tax.info.1098.real.estate.coborrower.text=The interest paid on the Real Estate loan(s) listed above will be furnished to the IRS under the primary borrower's SSN.
+#--- Account Dispute Message ----- 
+# Suggestion Message# 
+dispute.charge.not.authorize = Thank you for submitting your information. Our representatives will issue a refund once the transactions have been reviewed (usually between 2-3 business days).<br><br>Based on your report that your card information was used without your authorization, your card has been deactivated to prevent additional fraud. You will receive a new card in the mail within 5-7 business days.
+dispute.resolve.not.attempt = Please contact the merchant first to attempt to resolve this issue before reporting it as a dispute. 
+dispute.resolve.attempt = Thank you for submitting your dispute. You will receive a provisional credit within 10 business days; however, the dispute process may take longer to be fully completed (up to 90 days). We will contact you if we need additional information as we work to resolve your dispute claim.
+dispute.rootno.message = IMPORTANT: Choosing 'no' indicates that you believe this transaction was fraudulent and that you would like to report your card lost/stolen and block further transactions from being made.
+dispute.blockcard.warn.msg = By submitting this form, you are confirming your card has been subject to fraud. Please click the 'Preview' button below to ensure you have accurately reported all fraudulent transactions on your account. Once you are certain the information is correct, click 'Submit Claim' to confirm your selections. Please note: Selecting 'Submit Claim' will prevent future use of your card, and a new debit card will be issued to you.
+#Questions  
+dispute.root.question=Did you provide your debit card number to make this charge?
+dispute.phone.label = Please provide the best number for us to reach you regarding this dispute.
+dispute.card.not.provided.opt.qn = What occurred?
+dispute.card.not.provided.opt2 = No, I did not make this charge, nor did I authorize it.
+dispute.card.provided.resolve.qn = Did you attempt to resolve your dispute with the merchant?
+#Answer
+dispute.my.card.info = My card is:
+dispute.debit.card.status1 = In my possession
+dispute.debit.card.status2 = Stolen
+dispute.debit.card.status3 = Lost
+dispute.additional.info.txt = Please provide any additional information that would be helpful in processing your dispute, including any interaction with the merchant.
+dispute.additional.info.fraud = Please select any other transactions you believe may have been fraudulent.
+dispute.claim.qn = Why are you disputing this transaction?
+#Resolve Option 
+dispute.resolve.opt1 = I was charged an amount that was different than what I agreed to pay the merchant.
+dispute.resolve.opt2 = I was charged twice for the same transaction.
+dispute.resolve.opt3 = I paid for this transaction via a different payment method (Ex. cash, check or credit card).
+dispute.resolve.opt4 = The merchant promised to issue credit to my account that I did not receive.
+dispute.resolve.opt5 = The merchandise or service I received was not what I expected based upon the description provided by the merchant.
+dispute.resolve.opt6 = I did not receive the merchandise or service I purchased by the agreed-upon date.
+# resolve answer 
+dispute.resolve.correct.amt = Amount that should have been charged?
+dispute.resolve.purchased = What was purchased?
+dispute.resolve.attempt.desc = Please describe any attempts you have made to resolve this dispute with the merchant.
+dispute.resolve.valid.charge = Amount of valid charge:
+dispute.resolve.paid.way = Payment method used?
+dispute.resolve.expected.creditdate = Expected date of credit. 
+dispute.resolve.service.returneddate = Date merchandise or service was returned or canceled.
+dispute.resolve.pickup.date = If credit is for merchandise, provide the date you returned the merchandise or made it available for pick up.
+dispute.resolve.cancellation.no = Return authorization number or cancellation number if available. 
+dispute.resolve.trackingno = Tracking number for returned merchandise. 
+dispute.resolve.expect.diff = Please describe how the merchandise/service was different then what was originally described.
+dispute.resolve.service.rcvddate = Date the merchandise/service was received. 
+dispute.resolve.merchandise.pickupdate = Date you canceled or attempted to cancel the service.  You may also enter the date you returned the merchandise or made it available for pickup.
+dispute.resolve.expected.rcvdate = Date you expected to receive the merchandise or service.
+dispute.resolve.shporpick = If merchandise, was it to be shipped or picked up?
+#Dispute Review Message 
+dispute.review.tran.header = Disputed Transaction(s)
+fraud.review.tran.header = Fraudulent Transaction(s)
+dispute.review.qn.title = Dispute Resolve Question & Answers
+#dispute.review.tran.no.header = T No:
+dispute.review.postdate.header = Posted Date:
+dispute.review.business.header = Business At:
+dispute.review.amount.header = Amount:
+dispute.review.cardno.header = Card No:
+dispute.review.contactno.header = Contact No:
+#Dispute Error Message 
+error.field.currency.dispute = Currency only accepts price value with dot and with maximum two decimal values.  
+dispute.date.invalid = Please enter a valid date (format: mm/dd/yyyy).
+dispute.required.field = Please enter a valid value for "{0}"
+tax.info.1098.real.estate.coborrower.text=The interest paid on the Real Estate loan(s) listed above will be furnished to the IRS under the primary borrower's SSN.
+
+
+#--- Account Dispute Message ----- 
+# Suggestion Message# 
+dispute.charge.not.authorize = Thank you for submitting your information. Our representatives will issue a refund once the transactions have been reviewed (usually between 2-3 business days).<br><br>Based on your report that your card information was used without your authorization, your card has been deactivated to prevent additional fraud. You will receive a new card in the mail within 5-7 business days.
+dispute.resolve.not.attempt = Please contact the merchant first to attempt to resolve this issue before reporting it as a dispute. 
+dispute.resolve.attempt = Thank you for submitting your dispute. You will receive a provisional credit within 10 business days; however, the dispute process may take longer to be fully completed (up to 90 days). We will contact you if we need additional information as we work to resolve your dispute claim.
+dispute.rootno.message = IMPORTANT: Choosing 'no' indicates that you believe this transaction was fraudulent and that you would like to report your card lost/stolen and block further transactions from being made.
+dispute.blockcard.warn.msg = By submitting this form, you are confirming your card has been subject to fraud. Please click the 'Preview' button below to insure you have accurately reported all fraudulent transactions on your account. Once you are certain the information is correct, click 'Submit Claim' to confirm your selections. Please note: Selecting 'Submit Claim': will prevent future use of your card, and a new debit card will be issued to you.
+#Questions  
+dispute.root.question=Did you provide your debit card number to make this charge?
+dispute.phone.label = Please provide the best number for us to reach you regarding this dispute.
+dispute.card.not.provided.opt.qn = What occurred?
+dispute.card.not.provided.opt2 = No, I did not make this charge, nor did I authorize it.
+dispute.card.provided.resolve.qn = Did you attempt to resolve your dispute with the merchant?
+#Answer
+dispute.my.card.info = My card is:
+dispute.debit.card.status1 = In my possession
+dispute.debit.card.status2 = Stolen
+dispute.debit.card.status3 = Lost
+dispute.additional.info.txt = Please provide any additional information that would be helpful in processing your dispute, including any interaction with the merchant.
+dispute.additional.info.fraud = Please select any other transactions you believe may have been fraudulent.
+dispute.claim.qn = Why are you disputing this transaction?
+#Resolve Option 
+dispute.resolve.opt1 = I was charged an amount that was different than what I agreed to pay the merchant.
+dispute.resolve.opt2 = I was charged twice for the same transaction.
+dispute.resolve.opt3 = I paid for this transaction via a different payment method (Ex. cash, check or credit card).
+dispute.resolve.opt4 = The merchant promised to issue credit to my account that I did not receive.
+dispute.resolve.opt5 = The merchandise or service I received was not what I expected based upon the description provided by the merchant.
+dispute.resolve.opt6 = I did not receive the merchandise or service I purchased by the agreed-upon date.
+# resolve answer 
+dispute.resolve.correct.amt = Amount that should have been charged?
+dispute.resolve.purchased = What was purchased?
+dispute.resolve.attempt.desc = Please describe any attempts you have made to resolve this dispute with the merchant. 
+dispute.resolve.valid.charge = Amount of valid charge
+dispute.resolve.paid.way = Payment method used?
+dispute.resolve.expected.creditdate = Expected date of credit 
+dispute.resolve.service.returneddate = Date merchandise or service was returned or canceled
+dispute.resolve.pickup.date = If credit is for merchandise, provide the date you returned the merchandise or made it available for pick up
+dispute.resolve.cancellation.no = Return authorization number or cancellation number if available 
+dispute.resolve.trackingno = Tracking number for returned merchandise 
+dispute.resolve.expect.diff = Please describe how the merchandise/service was different then what was originally described
+dispute.resolve.service.rcvddate = Date the merchandise/service was received 
+dispute.resolve.merchandise.pickupdate = Date you canceled or attempted to cancel the service.  You may also enter the date you returned the merchandise or made it available for pickup
+dispute.resolve.expected.rcvdate = Date you expected to receive the merchandise or service
+dispute.resolve.shporpick = If merchandise, was it to be shipped or picked up?
+#Dispute Review Message 
+dispute.review.tran.header = Disputed Transaction(s)
+dispute.review.qn.title = Dispute Resolve Question & Answers
+#dispute.review.tran.no.header = T No:
+dispute.review.postdate.header = Posted Date:
+dispute.review.business.header = Business At:
+dispute.review.amount.header = Amount:
+dispute.review.cardno.header = Card No:
+dispute.review.contactno.header = Contact No:
+#Dispute Error Message 
+error.field.max.dispute = Maximum dispute limit can be ${0} 
+error.field.currency.dispute = Currency only accepts price value with dot and with maximum two decimal values  
+dispute.date.invalid = Please enter a valid date (format: mm/dd/yyyy).
+
+!Role Setup
+ofac.duplicate.review=Our records indicate the guest user has been added within the last 15 days and is currently under review.
+create.guest.success=Your guest user has been successfully created and an email has been sent informing them that you have provided them with guest access to your business accounts. You will need to provide the guest user with their credentials to allow them to log in to rbfcu.org. Next step: Provide the guest user with their credentials to allow them to log in to rbfcu.org, and assign them specific access/account roles.
+remove.guest.success=Guest user roles successfully removed.
+passcode.send.failure=Error occured sending One Time passcode.
+challenge.phrase.failed.attempts.exceeded=We are unable to verify your identity at this time. Please contact the account owner for more information.
+challenge.phrase.failed=We are unable to verify your identity at this time. Please contact the account owner for more information.
+challenge.passcode.failed=We are unable to verify the One Time passcode at this time.
+account.group.success=Your accounts have been successfully grouped.
+account.group.error=Your accounts cannot be grouped at this time. Please contact Business Solutions at 1-800-580-3300 ext.53800.
+error.manage.roles=An error occurred while setting your account roles. Please try to set your roles again later.
+manage.roles.success=All roles were successfully saved.
+manage.acct.ownership=There are no accounts to manage roles for at this time. You must be an account owner to manage roles.
+error.send.invitation.verifyPhrase=An error occurred in the verification.
+error.send.update=An error occurred while updating user. 
+error.send.delete=An error occurred while deleting user. 
+error.credentials.exists=The username you have entered is not available. Please choose another username. 
+error.invitee.member.agreement=We are unable to proceed further. Please contact your business partner(s) for more information.
+error.fis.verification.failure=We are unable to complete the identity verification process. An RBFCU representative will contact you with additional details.
+error.unauthorized.send.invitation=You are not authorized to set up a guest user for this account. 
+error.agreement.notfound=This guest user was authorized for a shared business account by another account owner. In order to grant access to this user for a separately-owned account, please create a new profile.
+invitee.username.already.exists=A guest user has already been created for this person. The guest user can login with the username {0}.
+personal.acct.support=Roles on personal accounts cannot be managed.
+email.update.noaccess=Access to this feature is restricted at this time for security reasons.\
+					Our records show you may have recently changed your contact information. Please contact Business Solutions at 1-800-580-3300 ext.53800 for further information.
+firsttime.login.no.roles.assigned=Welcome to RBFCU online banking. You are visiting our site as a guest user for a business owner with whom you are affiliated. The business owner has not yet assigned you a specific role, which is required to allow you to interact with their accounts. Please contact the business owner and ask them to update your guest user access and permissions.
+manage.roles.email.required=An email address is required to access this feature. Please visit <a href="/NBO/myprofile/loadContactPref.do">Contact Preferences</a> to add your email address.  
+business.delegate.readonly.message=Access to perform the requested transaction cannot be completed due to the restrictions set up by the account owner. Please contact the primary account holder so they may provide the necessary permissions by updating the available account roles.
+business.delegate.shared.owner=We cannot proceed as requested. Our records indicate you already have ownership on the said business account(s).
+error.contact.preference.text.email=Please submit your phone number in the proper email format in order to receive text message alerts at this number. For example, an AT&T user would enter {0}.
+personal.acct.support.ext=Currently, guest user access is only available for business accounts. While you can see your personal accounts listed below, you will only have the opportunity to assign roles on business accounts you own.
+personal.acct.support.buss=To streamline the accounts you see when assigning roles, you can  <a href="/NBO/accounts/displayBusiness.do">group</a> your accounts by business.
+
+!LoanStatus Page
+!Credit card					
+cosigner.tasklistitem.display=this <a href="javascript:void(0)" onclick=window.open("/docs/default-source/payment-services/noticetoco-signer.pdf","pdfwindow","width=800,height=800")>link</a>
+cosigner.tasklistitem.mobile.display=this <a href="/docs/default-source/payment-services/noticetoco-signer.pdf" class="link bypass">link</a>
+!Personal Loan
+confirm.terms.loan.display = Please <a href="/NBO/loans/status/loanFinalizationTemplate.do?loanId={0}">click here</a>
+confirm.terms.loan.mobile.display = Please <a onclick="getTemplate(&#39;{0}&#39;)"  class="link bypass">click here</a>
+! Vehicle Loan
+power.of.attorney.notary.display = <a href="javascript:void(0)" onclick=window.open("/docs/default-source/Consumer-Lending/ln-170-notary-rbfcu.pdf","pdfwindow","width=800,height=800")>power of attorney</a>
+power.of.attorney.notary.mobile.display=<a href="/docs/default-source/Consumer-Lending/ln-170-notary-rbfcu.pdf" class="link bypass">power of attorney</a>
+
+power.of.attorney.non.notary.display = <a href="javascript:void(0)" onclick=window.open("/docs/default-source/Consumer-Lending/ln-170-non-notary-rbfcu.pdf","pdfwindow","width=800,height=800")>power of attorney</a>
+power.of.attorney.non.notary.mobile.display=<a href="/docs/default-source/Consumer-Lending/ln-170-non-notary-rbfcu.pdf" class="link bypass">power of attorney</a>
+
+vehicle.check.list.refinance.display=<a href="javascript:void(0)" onclick=window.open("/docs/default-source/Consumer-Lending/ln-172-vehicle-loan-full-site-check-list-refinance.pdf","pdfwindow","width=800,height=800")>Click here</a>
+vehicle.check.list.leasebuyout.display=<a href="javascript:void(0)" onclick=window.open("/docs/default-source/Consumer-Lending/ln-172-vehicle-loan-full-site-check-list-lease-buy-out.pdf","pdfwindow","width=800,height=800")>Click here</a>
+vehicle.check.list.nettoclear.display=<a href="javascript:void(0)" onclick=window.open("/docs/default-source/Consumer-Lending/ln-172-vehicle-loan-full-site-check-list-net-to-clear.pdf","pdfwindow","width=800,height=800")>Click here</a>
+vehicle.check.list.buyerseller.display=<a href="javascript:void(0)" onclick=window.open("/docs/default-source/Consumer-Lending/ln-172-vehicle-loan-full-site-check-list-buyer-seller.pdf","pdfwindow","width=800,height=800")>Click here</a>
+
+vehicle.check.list.refinance.mobile.display=<a href="/docs/default-source/Consumer-Lending/ln-172-vehicle-loan-check-list-refinance.pdf" class="link bypass">Click here</a>
+vehicle.check.list.nettoclear.mobile.display=<a href="/docs/default-source/Consumer-Lending/ln-172-vehicle-loan-check-list-net-to-clear.pdf" class="link bypass">Click here</a>
+vehicle.check.list.leasebuyout.mobile.display=<a href="/docs/default-source/Consumer-Lending/ln-172-vehicle-loan-check-list-lease-buy-out.pdf" class="link bypass">Click here</a>
+vehicle.check.list.buyerseller.mobile.display=<a href="/docs/default-source/Consumer-Lending/ln-172-vehicle-loan-check-list-buyer-seller.pdf" class="link bypass">Click here</a>
+
+contact.text=Contact Consumer Lending
+contact.text1=contact Consumer Lending
+contact.display.text=Contact Consumer Lending at <span class="nowrap">210-945-3399</span>
+contact.display.text1=contact Consumer Lending at <span class="nowrap">210-945-3399</span>
+contact.display.text.mobile=<a href="tel:2109453399" class ="link">Contact Consumer Lending</a>
+contact.display.text1.mobile=<a href="tel:2109453399" class ="link">contact Consumer Lending</a>
+
+howto.complete.nextsteps=&#8224;&nbsp;<b>How to Complete Your Next Steps/Conditions:</b><br/><br/>\
+					   In order to successfully finalize your loan, please complete all action items and review any conditions that must be satisfied.\
+					   &nbsp;If information is requested (references, etc.), you may submit it by clicking the "Contact Us" button and providing the information via secure message.<br/><br/>\
+					   If a document is requested, please print the file, complete it and do one of the following: <br/><br/>\
+					 	<ul><li>Fax to 210-637-3669, unless otherwise noted.</li>\
+						<li>	Mail to our corporate headquarters <br/>\
+								<div style="padding :5px">Randolph Brooks Federal Credit Union<br/>\
+								Attn: Consumer Lending<br/>\
+								PO Box 2097<br/>\
+								Universal City, TX 78148-9941.</div>\
+						</li>\
+						<li>	Deliver to any branch.</li></ul>\
+					 If you have questions regarding any next steps or conditions associated with your loan application, send us a secure message. You may also contact us by phone at 1-800-580-3300 (option 3, option 3).
+
+how.to.complete.nextsteps=&#8224;&nbsp;<b>How to Complete Your Next Steps/Conditions:</b><br/><br/>\
+ 					   In order to successfully finalize your loan, please complete all action items and review any conditions that must be satisfied.\
+ 					   &nbsp;If information is requested (references, etc.), you may provide the information via secure message.<br/><br/>\
+ 					 If you have questions regarding any next steps or conditions associated with your loan application, send us a secure message. You may also contact us by phone at 1-800-580-3300 (option 3, option 3).
+					
+howto.complete.nextstepsmobile=<ul><li class="noa clickable"><label>&#8224;&nbsp;How to Complete Your Next Steps/Conditions:</label><br/><br/>\
+						In order to successfully finalize your loan, please complete all action items and review any conditions that must be satisfied.\
+						&nbsp;If information is requested (references, etc.), you may submit it by clicking the "Contact Us" button and providing the information via secure message.<br><br/>\
+						If a document is requested, please print the file, complete it and do one of the following: <br><br>\
+						&bull;	Fax to 210-637-3669, unless otherwise noted.<br/>\
+						&bull;			Mail to our corporate headquarters <br/>\
+									<div style="padding-left :15px">Randolph Brooks Federal Credit Union<br/>\
+									Attn: Consumer Lending<br/>\
+									PO Box 2097<br/>\
+									Universal City, TX 78148-9941.</div>\
+						&bull; Deliver to any branch.<br/><br/>\
+						If you have questions regarding any next steps or conditions associated with your loan application, send us a secure message.</li></ul>
+
+instant.approved.message= <h1>Congratulations! Your loan application has been approved.</h1><h2>What's Next?</h2><br/>\
+            			  <p>To view your approval information, including rate and any additional steps</p>\
+            			  <p>needed to complete the loan process, visit your <a href="/NBO/loans/status/loadLoanStatus.do" style="font-weight: bold">Application Status</a> page.</p>\
+instant.approved.mobile.message=<p style="font-weight: bold">Congratulations! Your loan application has been approved. <br/>What's Next? </p>\
+            			  	    <p>To view your approval information, including rate and any additional steps \
+            			 	    needed to complete the loan process, visit your <a href="/NBO/loans/status/loadLoanStatus.do" style="font-weight: bold">Application Status</a> page.</p>
+            			  	
+secure.message.template.sucess=<b>If no changes were submitted</b><br/> You will receive a secure message in your RBFCU \
+               account with the DocuSign <br/>access code required to access and sign your loan documents \
+               electronically.<br/> Your loan documents will be sent to the email address provided in your application.<br/><br/><b>If you requested an update</b><br/> \
+               Such as loan amount, number of payments, or payment date, we will <br/>respond to your request through secure message. 
+			   
+decline.loan=Please share with us your reason for declining this loan so we can better meet your needs in the future.
+             
+decline.loan.mobile=<p>Please share with us your reason for declining this loan so we can better meet your needs in the future.<br/><br/> \
+                     <strong>I do not wish to proceed with loan offer because </strong></p> 
+                     
+decline.loan.sucess =<p>We received your request to decline your loan offer. Please consider RBFCU in the future for \
+					 your loan needs.We are here to help.</p>	
+					 
+submit.decline.loan=<p>When you submit this request to decline, the loan offer will no longer be available to you. If you desire to re-start the process \
+                    in the future, you will need to complete a new loan application. <br/>Are you sure you want to decline this loan offer?</p>	 
+                    
+submit.decline.loan.mobile=<p>When you submit this request to decline, the loan offer will no longer be available to you. If you desire to re-start the process \
+                    in the future, you will need to complete a new loan application.Are you sure you want to decline this loan offer?</p>                      
+          
+ppi.info=Payment protection insurance (PPI) can help you make sure you're covered if you can't make payments<br/> because of unexpected illness, injury or death.
+ppi.info.mobile=Payment protection insurance (PPI) can help you make sure you're covered if you can't make payments because of unexpected illness, injury or death.
+
+member.comments=If the number of payments, payment start date or payment amount does not meet your needs, please <br/>define the terms you are looking for below:<br/><br/>
+member.comments.mobile=If the number of payments, payment start date or payment amount does not meet your needs, please define the terms you are looking for below:<br />
+       
+dialog.update.success= Thank you for helping us protect your accounts and ensure your security.
+dialog.protect.you.header = Help Us Protect You
+dialog.protect.you= From time to time, we may need to contact you to verify information and protect your accounts. Help us ensure we can reach you by confirming your contact information.
+dialog.protect.current.phone= We currently have <b> {0} </b> on file as your <b>mobile phone number</b>. Is this correct?
+dialog.nophone = From time to time, we may need to contact you by phone to verify information and protect your accounts. We do not currently have a phone number on file for you. 
+dialog.pers.has.personal.phone= We currently have  <b> {0} </b> on file as a phone number for you. Is this your mobile phone?
+dialog.disclaimer = Please provide your <b> current mobile phone number </b> so we can contact you with necessary account alerts. We will not use this phone number for marketing without your permission.
+dialog.personal.phone = From time to time, we may need to contact you to verify information and protect your accounts. We currently have <b> {0} </b> on file as a phone number for you. Is this your <b>mobile phone?</b>
+dialog.protect.you.email = From time to time, we may need to contact you to verify information and protect your accounts. We currently have <b> {0} </b> on file as an <b>email address</b> for you.
+dialog.protect.you.current.email = Please provide your current email address so we can contact you with necessary account alerts.
+dialog.protect.current.email = Is <b> {0} </b> your current email address?
+dialog.email.disclaimer= <b>We will not use this email address for marketing purposes without your consent.</b>
+dialog.noemail = From time to time, we may need to contact you to verify information and protect your accounts. We do not currently have an <b>email address </b> on file for you. 
+
+display.holiday.message=false
+holiday.message=&#8224;&nbsp;&nbsp;Applying for a Holiday Loan? Choose "Signature Loan" from the "Other Consumer Loans" menu, <br/>&nbsp;&nbsp;&nbsp;then select "Holiday Loan" from the Purpose Type menu. Holiday Loans are available with terms <br/>&nbsp;&nbsp;&nbsp;up to 12 months.
+holiday.message.mobile =&#8224;&nbsp;Applying for a Holiday Loan? Choose "Signature Loan" from the "Other Consumer Loans" menu,then select "Holiday Loan" from the Purpose Type menu. Holiday Loans are available with terms up to 12 months.
+
+message.assistance.mobile= &#8224;&nbsp;If you are using a screen reader and are having problems using this website, please call 1-800-580-3300 for assistance.
+
+dialog.estatement.title= Enroll in eStatements
+dialog.estatement.header.text1 =eStatements provides quick, environmentally-friendly access to 	your account statements. 
+dialog.estatement.confirm.email=Please confirm your email address and check "Yes!" to enroll in eStatements.
+dialog.estatement.no.email.enroll =Please add your email address and check "Yes!" to enroll in eStatements.
+dialog.estatement.enroll.acceptance.text1 =Yes! I have read and understand the eStatements
+dialog.estatement.enroll.acceptance.text2 =terms and conditions
+dialog.estatement.primary.email.label= Primary email address:
+dialog.estatement.declined.btn= No thanks
+dialog.error.agreement.required=You must accept the RBFCU eStatements Agreement.
+dialog.edoc.enroll.confirm=Thank you for enrolling in eStatements!
+dialog.edoc.enroll.prv.estmt=Your previous statements will be available in your online banking account in a few hours.
+dialog.estatement.enroll.email.confirm=At that time you will receive an email at <b>{0}</b> advising you that your eStatement is available to view online. \
+					You will also be notified by email when a document or disclosure is updated and ready for you to view.
+!Fraudmap
+mfa.error.no.contact=In order to ensure your account is secure, we need to verify your identity in order to proceed. Because we do not currently have a method of contact on file for you, please contact us at your earliest convenience to add your preferred method of communication to your member profile. <br/><br/> Please call us at <nobr>1-800-580-3300</nobr> or visit your closest branch to make these updates. <br/><br/> You may continue to access other functions within your account by closing this box.
+mfa.error.no.contact.mobileapp=In order to ensure your account is secure, we need to verify your identity in order to proceed. Because we do not currently have a method of contact on file for you, please contact us at your earliest convenience to add your preferred method of communication to your member profile. <br/><br/> Please call us at <nobr>1-800-580-3300</nobr> or visit your closest branch to make these updates. <br/><br/> You may continue to access other functions within your account.
+mfa.info.footer=If you don't have access to the verification option(s) listed here or they are not up to date, contact us at <nobr>1-800-580-3300</nobr> or visit a branch to update your information. You may continue to access other functions within your account by closing this box.
+mfa.info.footer.mobile=If you don't have access to the verification option(s) listed here or they are not up to date, contact us at <nobr>1-800-580-3300</nobr> or visit a branch to update your information. You may continue to access other functions within your account. 
+mfa.logon.notice.mfaLockout=<p>Because we were unable to verify your identity, we have temporarily disabled online access to your account. Please contact us at <nobr>1-800-580-3300</nobr> to verify your identity and reinstate your access.</p>
+mfa.logon.notice.lockout.mobileapp=Because we were unable to verify your identity, we have temporarily disabled online access to your account. Please contact us at 1-800-580-3300 to verify your identity and reinstate your access.
+mfa.prompt.contact.header=Help us protect you
+mfa.prompt.parent.header.info=To protect your account, we're going to send you a temporary code to verify your identity.
+mfa.prompt.parent.header.info.next=<b>Where should we send the code?</b>
+mfa.prompt.otp.next.info=Once you receive the code, type it in.
+mfa.error.prompt.invalid.otp=The code you entered was incorrect. Please request a new code and try again.
+mfa.label.didnot.getcode=Didn't receive a code?
+mfa.label.make.sure=If you did not receive a verification code, make sure:
+mfa.label.correct.addr.phone=Your email address or phone number on file with us is correct
+mfa.label.more.min=More than a minute has passed since you requested your code
+mfa.label.diff.method=Try a different method
+mfa.error.otp.send.process=We were unable to process your request for a passcode. Please resubmit your request.
+mfa.error.invalid.third.attempt=Please double check your information before attempting to complete verification. Excessive incorrect attempts will result in your account access being locked.
+mfa.label.faq.question.1=Why is this additional authentication required and how does it protect me?
+mfa.label.faq.question.1.details=Adding a required verification code allows us to confirm your identity and protect your account from potential fraud. The additional verification helps us ensure the person completing a transaction is the person authorized to access/transact on the account.
+mfa.label.faq.question.2=What if I don't have access to the email or device that is listed?
+mfa.label.faq.question.2.details=If you don't have the device/email address available right now, you can exit the screen and complete the transaction later. You'll still be able to access your RBFCU account. You will not be able to complete this transaction online until you complete the verification, but can call <nobr>1-800-580-3300</nobr> to verify your identity by phone.
+!CashBackConversion
+dialog.cashbackconversion.title=Upgrade from Gold to Platinum to get 2% Cash Back on Every Purchase
+dialog.cashbackconversion.marketing.text=You have the opportunity to earn 2% unlimited cash back by converting your current RBFCU Gold CashBack MasterCard to the RBFCU Platinum CashBack Rewards MasterCard.
+dialog.cashbackconversion.no.creditcheck.text=Requesting your new card takes less than a minute and no credit check is needed.
+dialog.cashbackconversion.request.primaryDetails=we need a few details from you.
+dialog.cashbackconversion.request.coApplicantDetails=Please provide your co-applicant
+dialog.cashbackconversion.support.text.coApplicant=Your co-applicant is the person you currently share a card with.
+dialog.cashbackconversion.housing.status=What is your occupancy status?
+dialog.cashbackconversion.monthly.payment=Provide your monthly housing payment.
+dialog.cashbackconversion.employment.status=What is your employment status?
+dialog.cashbackconversion.monthly.income=Please update your annual income.
+dialog.cashbackconversion.acceptance.text1=I agree with the
+dialog.cashbackconversion.acceptance.text2=terms and conditions.
+dialog.cashbackconversion.creditlimit.impact=These questions will not impact your credit limit, which will remain the same as on your Gold CashBack Mastercard.
+dialog.cashbackconversion.promos.text=When you convert to a Platinum CashBack Rewards credit card, you'll be eligible for higher cash back rewards. However, you will not be eligible for additional promotional offers associated with opening a new credit line.
+dialog.cashbackconversion.decline.text=No thanks, not interested.
+dialog.cashbackconversion.rate.old.text=Gold Card current rate is
+dialog.cashbackconversion.rate.new.text=Your new variable rate will be
+dialog.cashbackconversion.success=Your Platinum CashBack Rewards card is on its way. You may receive a push notification through the RBFCU Mobile app letting you know your card has been approved; however, no further action is required from you to complete the process. You should receive your new card within five business days, with the PIN arriving in a separate envelope.
+dialog.cashbackconversion.earning.immediately=And, you don't have to wait to start earning 2% CashBack!
+dialog.cashbackconversion.continue.goldcard.text=You can continue to use your current Gold CashBack card until your new card arrives; any purchases will be automatically transferred to the new card and qualify for the 2% cash back rewards.
+dialog.error.termsconditions.required=You must accept the RBFCU terms and conditions.
+dialog.error.cashBackConversion.banner.inactive=CashBack Conversion Banner Inactive.
+!document upload
+error.file.required=Please select a file to upload.
+error.file.permitted.type=Please upload the file in one of these formats: .doc, .docx, .pdf, .jpg, .png.
+error.file.size.limit=File size must be smaller than {0}
+error.document.upload=Unable to upload document {0}
+error.document.upload.failed=We are unable to process your request at this time. Please try again later. If you continue to receive this error, please call our Consumer Lending Center at 210-945-3300 (San Antonio), 512-833-3300 (Austin), or 1-800-580-3300 (toll free) for further assistance. 
+
+937
+
+
+
+
+
+package org.rbfcu.netbranch.loanorigination.status.tasklistitems;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.commons.lang3.StringUtils;
+import org.rbfcu.loanorigination.business.BaseLoanApp;
+import org.rbfcu.loanorigination.business.Task;
+import org.rbfcu.netbranch.common.utility.Utility;
+import org.rbfcu.netbranch.loanorigination.status.bean.LoanFinalizationTask;
+import org.rbfcu.netbranch.loanorigination.status.bean.LoanStatusInfo;
+import org.rbfcu.netbranch.loanorigination.status.tasklistitems.utility.LoanApplicationTaskListItemsUtil;
+
+public abstract class BaseTaskMapper {
+
+	protected BaseLoanApp loanApplication;
+	protected LoanStatusInfo loanStatusInfo;
+	protected boolean mobileAppMode;
+
+	public LoanStatusInfo populateTasks(BaseLoanApp loanApplication, LoanStatusInfo loanStatusInfo, boolean mobileAppMode) {
+		initialize(loanApplication, loanStatusInfo, mobileAppMode);
+
+		List<LoanFinalizationTask> generalTasks = buildGeneralTasks();
+		List<LoanFinalizationTask> requiredTasks = buildRequiredTasks();
+
+		loanStatusInfo.setGeneralTaskList(generalTasks);
+		loanStatusInfo.setRequiredTaskList(requiredTasks);
+
+		return loanStatusInfo;
+	}
+
+	private void initialize(BaseLoanApp loanApplication, LoanStatusInfo loanStatusInfo, boolean mobileAppMode) {
+		this.loanApplication = loanApplication;
+		this.loanStatusInfo = loanStatusInfo;
+		this.mobileAppMode = mobileAppMode;
+	}
+
+	private List<LoanFinalizationTask> buildRequiredTasks() {
+		List<Task> filteredTasks = filterRequiredTasks(loanApplication.getTasks());
+
+		List<LoanFinalizationTask> requiredTasks = new ArrayList<LoanFinalizationTask>();
+		LoanFinalizationTask requiredTask = null;
+
+		for (Task task : filteredTasks) {
+			if (isAnOpenRequiredTask(task)) {
+				requiredTask = buildRequiredTask(task);
+
+				if (requiredTask != null) {
+					requiredTask = formatContactUs(requiredTask, mobileAppMode);
+					requiredTasks.add(requiredTask);
+				}
+			}
+		}
+
+		return requiredTasks;
+	}
+
+	private LoanFinalizationTask buildRequiredTask(Task task) {
+		if (isMappedRequiredTask(task)) {
+			return buildMappedRequiredTask(task);
+		}
+
+		return buildLoanFinalizationTask(task);
+	}
+
+	protected abstract boolean isMappedRequiredTask(Task task);
+
+	protected abstract LoanFinalizationTask buildMappedRequiredTask(Task task);
+
+	protected abstract boolean isMappedGeneralTask(Task task);
+
+	protected abstract LoanFinalizationTask buildMappedGeneralTask(Task task);
+
+	private List<LoanFinalizationTask> buildGeneralTasks() {
+		List<Task> filteredTasks = filterGeneralTasks(loanApplication.getTasks());
+
+		List<LoanFinalizationTask> generalTasks = new ArrayList<LoanFinalizationTask>();
+		LoanFinalizationTask generalTask = null;
+
+		for (Task task : filteredTasks) {
+			if (isAnOpenGeneralTask(task)) {
+				generalTask = buildGeneralTask(task);
+
+				if (generalTask != null) {
+					generalTask = formatContactUs(generalTask, mobileAppMode);
+					generalTasks.add(generalTask);
+				}
+			}
+		}
+
+		return generalTasks;
+	}
+
+	protected List<Task> filterRequiredTasks(List<Task> requiredTasks) {
+		return requiredTasks;
+	}
+
+	protected List<Task> filterGeneralTasks(List<Task> generalTasks) {
+		return generalTasks;
+	}
+
+	private LoanFinalizationTask buildGeneralTask(Task task) {
+		if (isMappedGeneralTask(task)) {
+			return buildMappedGeneralTask(task);
+		}
+
+		return buildLoanFinalizationTask(task);
+
+	}
+
+	protected LoanFinalizationTask buildLoanFinalizationTaskWithLink(Task task, String linkPlaceholder, String fullSiteTarget,
+			String mobileappTarget, boolean isMobileappFlow) {
+		String taskDescription = formatTaskWithLinks(task.getDescription(), linkPlaceholder, fullSiteTarget, mobileappTarget, isMobileappFlow);
+		task.setDescription(taskDescription);
+
+		return buildLoanFinalizationTask(task);
+	}
+
+	protected String formatTaskWithLinks(String descriptionTemplate, String linkPlaceholder, String fullSiteTarget, String mobileappTarget,
+			boolean isMobileappFlow) {
+		String linkTarget = getApplicableTarget(fullSiteTarget, mobileappTarget, isMobileappFlow);
+		return StringUtils.replace(descriptionTemplate, linkPlaceholder, linkTarget);
+	}
+
+	protected LoanFinalizationTask formatContactUs(LoanFinalizationTask loanFinalizationTask, boolean mobileAppMode) {
+		if (loanFinalizationTask != null && StringUtils.isNotBlank(loanFinalizationTask.getDescription())) {
+			loanFinalizationTask = LoanApplicationTaskListItemsUtil.formatContactUs(loanFinalizationTask, mobileAppMode);
+		}
+
+		return loanFinalizationTask;
+	}
+
+	protected LoanFinalizationTask buildLoanFinalizationTask(Task task) {
+		LoanFinalizationTask loanFinalizationTask = new LoanFinalizationTask();
+		loanFinalizationTask.setTaskCode(task.getTaskCode());
+		loanFinalizationTask.setDescription(task.getDescription());
+
+		return loanFinalizationTask;
+	}
+
+	protected String getApplicableTarget(String fullSiteTarget, String mobileappTarget, boolean isMobileappFlow) {
+		if (isMobileappFlow) {
+			return mobileappTarget;
+		}
+
+		return fullSiteTarget;
+	}
+
+	protected boolean isApproved(LoanStatusInfo loanStatusInfo) {
+		return LoanApplicationTaskListItemsUtil.isApproved(loanStatusInfo);
+	}
+
+	protected boolean isTierThreeOrLower(BaseLoanApp loanApplication) {
+		return !LoanApplicationTaskListItemsUtil.hasCreditScoreGreaterThan680(loanApplication);
+	}
+
+	protected boolean isJointPresent(LoanStatusInfo loanStatusInfo) {
+		return loanStatusInfo.getCoBorrowerName1() != null || loanStatusInfo.hasCoSigner();
+	}
+
+	protected boolean isAnOpenRequiredTask(Task task) {
+		return task.isOpen() && task.isRequired();
+	}
+
+	protected boolean isAnOpenGeneralTask(Task task) {
+		return task.isOpen() && task.isGeneral();
+	}
+
+	protected static String getUtilityMessage(String key) {
+		return Utility.getMessage(key);
+	}
+}
+
+
+
+111
+
+
+
+
