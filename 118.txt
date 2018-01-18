@@ -1590,6 +1590,135 @@ public abstract class BaseTaskMapper {
 
 111
 
+package org.rbfcu.documentupload.admin.service;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.lang3.StringUtils;
+import org.rbfcu.config.EnvConfig;
+import org.rbfcu.documentupload.admin.dto.AdminForm;
+import org.rbfcu.email.client.EmailMessage;
+import org.rbfcu.service.email.EmailSender;
+import org.rbfcu.service.email.config.Configuration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class RequestDocumentService {
+
+	private static final Logger LOG = LoggerFactory.getLogger(RequestDocumentService.class);
+
+	public void sendRequestEmail(AdminForm adminForm) {
+
+		EmailMessage email = createEmail(adminForm);
+
+		try {
+			EmailSender.getInstance().sendEmail(email);
+
+		} catch (Exception e) {
+			LOG.error("Error occured sending email", e);
+		}
+
+	}
+
+	private EmailMessage createEmail(AdminForm adminForm) {
+
+		EmailMessage email = new EmailMessage();
+
+		email.setFromAddress(Configuration.getValue("email.from"));
+		email.setFromName(Configuration.getValue("email.from.name"));
+		email.setSubject("Subject:" + adminForm.getSubject());
+		email.setToAddresses(getToEmailList(adminForm));
+		email.setCcAddresses(getCcEmailList(adminForm));
+
+		StringBuilder body = new StringBuilder();
+		if (!EnvConfig.isPrd()) {
+
+			body.append("<p> This is an email from the staging environment and is sent for testing purposes. </p>");
+			body.append("<p> ------------------------------------------------------------------------------- </p>");
+		}
+
+		body.append(generateBody(adminForm));
+		body.append(" Please <a href='localhost/uploaddocument/upload/");
+		body.append(generateEncryptedFolderLocation(adminForm));
+		body.append("/");
+		body.append(generateTimeStamp(adminForm));
+		body.append("/");
+		body.append(generateEncryptedNotifier(adminForm));
+		body.append("'> Click here </a>to upload documents.<br><br>");
+		body.append(
+				"<p><font color='red'><strong>Note: </strong> Please Do not provide the password protected documents and do not worry this is very secure.</font></p>");
+
+		email.setBody(body.toString());
+		LOG.info("Email body: {}", body);
+
+		return email;
+	}
+
+	private List<String> getToEmailList(AdminForm adminForm) {
+		List<String> emailToList = new ArrayList<String>();
+		if (StringUtils.isNotEmpty(adminForm.getEmailTo())) {
+			String[] arrOfStr = adminForm.getEmailTo().split(";");
+			for (String eachEmail : arrOfStr) {
+				emailToList.add(eachEmail);
+			}
+		}
+		return emailToList;
+	}
+
+	private List<String> getCcEmailList(AdminForm adminForm) {
+		List<String> emailCcList = new ArrayList<String>();
+		if (StringUtils.isNotEmpty(adminForm.getEmailCc())) {
+			String[] arrOfStr = adminForm.getEmailCc().split(";");
+			for (String eachEmail : arrOfStr) {
+				emailCcList.add(eachEmail);
+			}
+		}
+		return emailCcList;
+	}
+
+	private String generateBody(AdminForm adminForm) {
+		return adminForm.getRequiredDocuments().replace("\r\n", "<br>");
+	}
+
+	private String generateEncryptedFolderLocation(AdminForm adminForm) {
+		String encryptedParams = "";
+		String params = adminForm.getFolderLocation();
+		try {
+			encryptedParams = Hex.encodeHexString(params.getBytes());
+		} catch (Exception e) {
+			LOG.error("Error occured while encrypting URL");
+		}
+		return encryptedParams;
+	}
+
+	private String generateTimeStamp(AdminForm adminForm) {
+		String encryptedTime = "";
+		String timeStamp = LocalDateTime.now().toString();
+		try {
+			encryptedTime = Hex.encodeHexString(timeStamp.getBytes());
+		} catch (Exception e) {
+			LOG.error("Error occured while encrypting URL");
+		}
+		return encryptedTime;
+	}
+
+	private String generateEncryptedNotifier(AdminForm adminForm) {
+		String encryptedNotifier = "";
+		String params = adminForm.getUploadNotifier();
+		try {
+			encryptedNotifier = Hex.encodeHexString(params.getBytes());
+		} catch (Exception e) {
+			LOG.error("Error occured while encrypting email Notifier");
+		}
+		return encryptedNotifier;
+	}
+
+}
+
+
 
 
 
