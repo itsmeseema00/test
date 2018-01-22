@@ -1,0 +1,27 @@
+<tag lib tags/form  prefix: form>
+<form:form commandName="todo">//value from bean to form or vice versa
+<form:label path="">//same as name no need for name
+
+
+pom: hibernate jpa and hibernate validator and validation-api
+1) class ToDo{
+
+added size(min= 6, message="Enter 6 characters" )
+private String Desc;
+
+2)
+hibernate validator in pom.cml
+
+3)controller
+
+modelMap model ToDo todo(Object)  @Valid @BindingResult result
+if(result.hasErrors()){
+return "todo"
+}
+
+empty constructor in TODO object
+
+4)<form:label path="">//same as name no need for name
+<form:errors oath="desc" cssClass="text-warning">
+
+
