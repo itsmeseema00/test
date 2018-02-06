@@ -198,3 +198,100 @@ function formatBytes(a, b) {
  
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<%@ include file="jspf/preHeaderArea.jspf"%>
+<%@page contentType="text/html" import="java.util.*" %>
+<% pageContext.setAttribute("newLineChar", "\r\n"); %>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<link href="/RequestDocument/resources/css/bootstrap.css${asset_id}" rel="stylesheet">
+<link href="/RequestDocument/resources/js/bootstrap.js" rel="stylesheet">
+<link href="/RequestDocument/resources/css/features.css${asset_id}" rel="stylesheet">
+
+<title>Admin Web Page</title>
+
+<div class="container">
+   <form:form enctype="multipart/form-data" action="/RequestDocument/confirm"  modelAttribute="RequestDocumentForm" method="post">
+      <br><br>
+      <p><strong>Review</strong></p>
+      <br>      
+      <table class="table table-striped" style="font-size: 90%;">
+         <tr>
+            <th scope="row">To</th>
+            <td>${RequestDocumentForm.toAddresses}</td>
+            <form:input path="toAddresses" type='hidden' id='toAddresses' name='toAddresses' value='${RequestDocumentForm.toAddresses}'/>
+         </tr>
+         <tr>
+            <th scope="row">Cc</th>
+            <td>${RequestDocumentForm.ccAddresses}</td>
+         </tr>
+         <tr>
+            <th scope="row">Send Upload Notification To</th>
+            <td>${RequestDocumentForm.uploadNotificationAddresses}</td>
+         </tr>
+         <tr>
+            <th scope="row">Folder Location</th>
+            <td>${RequestDocumentForm.folderLocation}</td>
+         </tr>
+         <tr>         
+            <th scope="row">Attached template in Email</th>
+             <td>
+                <c:forEach var="eachFile" items="${RequestDocumentForm.files}">
+                <c:set var="eachFiles" value="${eachFile.originalFilename}"/>
+                    <li>${eachFiles}</li>                    
+                 </c:forEach>
+                 <%-- <form:input path="files" type='hidden' value='${RequestDocumentForm.files}' multiple/> --%>
+            </td> 
+         </tr>
+         <tr>
+            <th scope="row">Subject</th>
+            <td>
+               <p>${RequestDocumentForm.subject}</p>
+            </td>
+         </tr>
+         <tr>
+            <th scope="row"></th>
+            <td> <p><img src="https://dev.rbfcu.org/images/default-source/nbo/others/rbfcu-logo.png"></p>             
+               ${fn:replace(RequestDocumentForm.body, newLineChar, '<br>')}
+               <br><br>Please <a>click here</a> to upload documents.
+               <br><br><p><font color='red'><strong>Note: </strong> Please Do not provide the password protected documents and do not worry this is very secure.</font></p>
+            </td>
+            <form:input path="ccAddresses" type='hidden' value='${RequestDocumentForm.ccAddresses}'/>
+            <form:input path="uploadNotificationAddresses" type='hidden' value='${RequestDocumentForm.uploadNotificationAddresses}'/>
+            <form:input path="linkValidityInDays" type='hidden' value='${RequestDocumentForm.linkValidityInDays}'/>
+            <form:input path="subject" type='hidden' value='${RequestDocumentForm.subject}'/>
+            <form:input path="body" type='hidden' value='${RequestDocumentForm.body}'/>
+            <form:input path="folderLocation" type='hidden' value='${RequestDocumentForm.folderLocation}'/>
+            <form:input path="department" type='hidden' value="${RequestDocumentForm.department}"/>
+            <form:input path="folders[0]" type='hidden' value="${RequestDocumentForm.folders[0]}"/>
+            <form:input path="folders[1]" type='hidden' value="${RequestDocumentForm.folders[1]}"/>
+            <form:input path="folders[2]" type='hidden' value="${RequestDocumentForm.folders[2]}"/>
+            <form:input path="folders[3]" type='hidden' value="${RequestDocumentForm.folders[3]}"/>
+         </tr>
+      </table>
+      <button class="btn btn-primary" onclick="event.preventDefault(); window.history.back();">Previous</button>
+      <button class="btn btn-primary" type="submit">Send</button>
+   </form:form>
+</div>
+
+
