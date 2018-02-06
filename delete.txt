@@ -1,0 +1,200 @@
+<%@ include file="jspf/preHeaderArea.jspf"%>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<link href="/RequestDocument/resources/css/bootstrap.css${asset_id}" rel="stylesheet">
+<link href="/RequestDocument/resources/js/bootstrap.js" rel="stylesheet">
+<link href="/RequestDocument/resources/css/features.css${asset_id}" rel="stylesheet">
+<script  type="text/javascript" src="/RequestDocument/resources/js/requestdocument.js${asset_id}"></script>
+
+    <title>Request Document</title>
+         
+        <form:form enctype="multipart/form-data" action="/RequestDocument/review"  modelAttribute="RequestDocumentForm" method="post" > 
+         <div class="container">
+         
+            <div class="errorMsg">
+                <form:errors path="*"/>
+            </div>
+            
+            <div class="form-group">
+                <form:label path="toAddresses">To</form:label>
+                <form:input path="toAddresses" cssClass="form-control" placeholder="Email Address of customer"/>
+             </div>             
+             <div class="form-group">
+                <form:label path="ccAddresses">Cc</form:label>
+                 <form:input path="ccAddresses" cssClass="form-control" placeholder="Email Address of employee"/>
+             </div>
+             <div class="form-group">
+                 <form:label path="uploadNotificationAddresses">Send Upload Notification To</form:label>
+                 <form:input id ="uploadNotificationAddresses" cssClass="form-control" path= "uploadNotificationAddresses" 
+                 placeholder="Email that will be notified after customer upload documents"/>
+             </div>             
+              <div class="form-group">
+              <form:label path="linkValidityInDays">Upload Link is valid for</form:label>
+                <form:select id="linkValidityInDays" cssClass="form-control" path="linkValidityInDays">
+                        <form:option value="" label="Select Month">Select Days</form:option>
+                        <form:option value="30">30 days</form:option>
+                        <form:option value="60">60 days</form:option>
+                        <form:option value="90">90 days</form:option>                        
+                </form:select>
+              </div>
+             <div class="form-group">
+                  <form:label path="subject">Subject</form:label>
+                  <form:textarea path="subject" cssClass="form-control" id="subject" rows="1" placeholder="Enter Subject"></form:textarea>
+             </div>
+             <div class="form-group">
+                  <form:label path="files" id="fileLabel">Attach Template in Email</form:label>
+                  <form:input type="file" multiple="multiple" path="files" id="fileBrowser"/>
+                  <button onclick="event.preventDefault(); deleteFile($('#fileBrowser'));" id="deleteButton">Delete file</button>
+                  <div id="filesSelected"></div>
+             </div>  
+             <div class="form-group">
+                  <form:label path="body">Body</form:label>
+                  <form:textarea path="body" cssClass="form-control" id="body" rows="5" placeholder="Enter body"></form:textarea>
+             </div>            
+             <div class="form-group">
+              <form:label path="department">Select Department</form:label>
+                <form:select id="department" cssClass="form-control" path="department" onchange="createFolderLink()">
+					<form:option value="" label="Select Department">Department</form:option>					
+					<c:forEach items="${availableDepartments}" var="option" varStatus="status">
+						<form:option value="${option.key}">${option.value}</form:option>				
+					</c:forEach>
+                </form:select>
+              </div>
+            <div class="form-group">
+                 <form:label path="folders[0]">Folder 1</form:label>
+                 <form:input path="folders[0]" id ="folder1" cssClass="form-control" oninput="createFolderLink()"/>
+             </div>
+             <div class="form-group">
+                 <form:label path="folders[1]">Folder 2</form:label>
+                 <form:input path="folders[1]" id ="folder2" cssClass="form-control" oninput="createFolderLink()"/>
+             </div>
+             <div class="form-group">
+                 <form:label path="folders[2]">Folder 3</form:label>
+                 <form:input path="folders[2]" id ="folder3" cssClass="form-control" oninput="createFolderLink()"/>
+             </div>
+             <div class="form-group">
+                 <form:label path="folders[3]">Folder 4</form:label>
+                 <form:input path="folders[3]" id ="folder4" cssClass="form-control" oninput="createFolderLink()"/>
+             </div>
+             <div class="form-group">
+                <form:label path="folderLocation">Folder Location</form:label>
+                <input name="folderLocation" id="reviewFolderLocation" readonly/>
+             </div>
+              <button class="btn btn-primary" type="submit">Review</button>
+              <br>
+        </div>
+ 
+ </form:form>
+ 
+ 
+ 
+ 
+ 
+ function createFolderLink() {
+    var sel = document.getElementById("department");
+    document.getElementById("reviewFolderLocation").value = "" + 
+    sel.options[sel.selectedIndex].value +  "\\" +
+    document.getElementById("folder1").value +  "\\" +
+    document.getElementById("folder2").value +  "\\" +
+    document.getElementById("folder3").value +  "\\" +
+    document.getElementById("folder4").value;
+}
+
+
+var formParams = new FormData();
+var filesToUpload = [];
+
+$(document).ready(function () {
+	
+	associateEvents();
+
+	window.deleteFile = function (e) {
+	    e.wrap('<form>').closest('form').get(0).reset();
+	    e.unwrap();
+	}
+});
+
+function associateEvents(){
+	$(".docUploadForm").on('submit',function (event) {
+		 event.preventDefault();		
+		 
+		for (var i = 0; i < filesToUpload.length; i++) {    
+   		formParams.append("files", filesToUpload[i]);
+ 		}
+	
+	});
+	
+$("#fileBrowser").on('click',function (event) {
+	$(this).val(null);
+});
+
+$("#fileBrowser").on('change',function (event) {
+	var files = $(this)[0].files;
+	
+	for (var i = 0; i < files.length; i++) {   
+		filesToUpload.push(files[i]); 
+		}
+	
+		
+		updateFilesSelected();
+});
+
+}
+
+function updateFilesSelected() {
+
+		if (filesToUpload != null) {
+
+		var filesSelectedHtml = "<p></p><p class='filesSelected'><b>Files selected:</b></p><ul>";
+		
+		for (var i = 0; i < filesToUpload.length; i++) {   
+			filesSelectedHtml = filesSelectedHtml + "<li class='fileName'>" + "<span>" + formatFileName(filesToUpload[i].name) + "</span>"  + "  "  + "<span>"  +
+			formatBytes(filesToUpload[i].size)  + "</span>"  + "<span class='remove'>Remove file</span></li>"; 
+			}
+	
+		var filesSelectedHtml = filesSelectedHtml + "</ul>";
+	
+		$("#filesSelected").html(filesSelectedHtml);
+		bindRemoveEvent();
+		
+	} else {
+		$("#filesSelected").html('');
+	} 
+}
+
+function formatFileName(fileName) {
+	var nameSuffix = '....';
+	var numberOfCharactersFromFileNameToBeDisplayed = 15;
+	
+	var expectedNameLength = numberOfCharactersFromFileNameToBeDisplayed + nameSuffix.length;  
+	
+	if (fileName.length <= numberOfCharactersFromFileNameToBeDisplayed) {
+		return fileName;
+	}
+	
+	return fileName.substr(0, numberOfCharactersFromFileNameToBeDisplayed) + nameSuffix;
+}
+
+function bindRemoveEvent() {
+	$("li.fileName > span.remove").bind('click',function (event) {
+		
+		var fileIndexToRemove = $(this).parent().index();
+		filesToUpload.splice(fileIndexToRemove, 1);
+		updateFilesSelected();		
+	});
+}
+
+function formatBytes(a, b) {
+	if (0 == a) {
+		return "0 Bytes";
+	}
+		
+	var c = 1024;
+	var d = b || 2;
+	var e = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+	var f = Math.floor(Math.log(a) / Math.log(c));
+	
+	return Math.ceil(parseFloat((a / Math.pow(c, f)).toFixed(d))) + " " + e[f];
+}
+ 
+
+
