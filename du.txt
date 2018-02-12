@@ -1,0 +1,971 @@
+1. Add an onclick, preferably using jQuery like $("#submitBtn").on convention
+2. In that function, keep the first line as event.preventDefault();. This will prevent the form to submit
+3. Refer https://stackoverflow.com/a/32749586 serialize the form and then concat the files selected. The name attribute must match the name of the property in form
+4. Manually do $("#yourForm").submit(); at the end of onclick method
+
+getUploadedFiles
+
+
+
+
+js
+
+function createFolderLink() {
+    var sel = document.getElementById("department");
+    document.getElementById("reviewFolderLocation").value = "" + 
+    sel.options[sel.selectedIndex].value +  "\\" +
+    document.getElementById("folder1").value +  "\\" +
+    document.getElementById("folder2").value +  "\\" +
+    document.getElementById("folder3").value +  "\\" +
+    document.getElementById("folder4").value;
+}
+
+
+var formParams = new FormData();
+var filesToUpload = [];
+
+$(document).ready(function () {
+	
+	associateEvents();
+
+	window.deleteFile = function (e) {
+	    e.wrap('<form>').closest('form').get(0).reset();
+	    e.unwrap();
+	}
+});
+
+function associateEvents(){
+	$(".docUploadForm").on('submit',function (event) {
+		 event.preventDefault();		
+		 
+		for (var i = 0; i < filesToUpload.length; i++) {    
+   		formParams.append("files", filesToUpload[i]);
+ 		}
+	
+	});
+	
+$("#fileBrowser").on('click',function (event) {
+	$(this).val(null);
+});
+
+$("#fileBrowser").on('change',function (event) {
+	var files = $(this)[0].files;
+	
+	for (var i = 0; i < files.length; i++) {   
+		filesToUpload.push(files[i]); 
+		}
+	
+		
+		updateFilesSelected();
+});
+
+}
+
+function updateFilesSelected() {
+
+		if (filesToUpload != null) {
+
+		var filesSelectedHtml = "<p></p><p class='filesSelected'><b>Files selected:</b></p><ul>";
+		
+		for (var i = 0; i < filesToUpload.length; i++) {   
+			filesSelectedHtml = filesSelectedHtml + "<li class='fileName'>" + "<span>" + formatFileName(filesToUpload[i].name) + "</span>"  + "  "  + "<span>"  +
+			formatBytes(filesToUpload[i].size)  + "</span>"  + "<span class='remove'>Remove file</span></li>"; 
+			}
+	
+		var filesSelectedHtml = filesSelectedHtml + "</ul>";
+	
+		$("#filesSelected").html(filesSelectedHtml);
+		bindRemoveEvent();
+		
+	} else {
+		$("#filesSelected").html('');
+	} 
+}
+
+function formatFileName(fileName) {
+	var nameSuffix = '....';
+	var numberOfCharactersFromFileNameToBeDisplayed = 15;
+	
+	var expectedNameLength = numberOfCharactersFromFileNameToBeDisplayed + nameSuffix.length;  
+	
+	if (fileName.length <= numberOfCharactersFromFileNameToBeDisplayed) {
+		return fileName;
+	}
+	
+	return fileName.substr(0, numberOfCharactersFromFileNameToBeDisplayed) + nameSuffix;
+}
+
+function bindRemoveEvent() {
+	$("li.fileName > span.remove").bind('click',function (event) {
+		
+		var fileIndexToRemove = $(this).parent().index();
+		filesToUpload.splice(fileIndexToRemove, 1);
+		updateFilesSelected();		
+	});
+}
+
+function formatBytes(a, b) {
+	if (0 == a) {
+		return "0 Bytes";
+	}
+		
+	var c = 1024;
+	var d = b || 2;
+	var e = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+	var f = Math.floor(Math.log(a) / Math.log(c));
+	
+	return Math.ceil(parseFloat((a / Math.pow(c, f)).toFixed(d))) + " " + e[f];
+}
+ 
+
+
+
+ 
+ landingpage.jsp
+ 
+ <%@ include file="jspf/preHeaderArea.jspf"%>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<link href="/request-document/resources/css/bootstrap.css${asset_id}" rel="stylesheet">
+<link href="/request-document/resources/js/bootstrap.js" rel="stylesheet">
+<link href="/request-document/resources/css/features.css${asset_id}" rel="stylesheet">
+<script  type="text/javascript" src="/request-document/resources/js/requestdocument.js${asset_id}"></script>
+<title>Request Document</title>
+<form:form enctype="multipart/form-data" action="/request-document/review"  modelAttribute="RequestDocumentForm" method="post" >
+   <div class="container">
+   <br>
+      <div class="errorMsg">
+         <form:errors path="*"/>
+      </div>
+      <div class="successMsg">
+        ${emailSentMsg}
+      </div>
+      <br>
+      <div class="form-group">
+         <form:label path="toAddresses">To</form:label>
+         <form:input path="toAddresses" cssClass="form-control" placeholder="Email Address of customer"/>
+      </div>
+      <div class="form-group">
+         <form:label path="ccAddresses">Cc</form:label>
+         <form:input path="ccAddresses" cssClass="form-control" placeholder="Email Address of employee"/>
+      </div>
+      <div class="form-group">
+         <form:label path="uploadNotificationAddresses">Send Upload Notification To</form:label>
+         <form:input id ="uploadNotificationAddresses" cssClass="form-control" path= "uploadNotificationAddresses" 
+            placeholder="Email that will be notified after customer upload documents"/>
+      </div>
+      <div class="form-group">
+         <form:label path="linkValidityInDays">Upload Link is valid for</form:label>
+         <form:select id="linkValidityInDays" cssClass="form-control" path="linkValidityInDays">
+            <form:option value="" label="Select Month">Select Days</form:option>
+            <form:option value="30">30 days</form:option>
+            <form:option value="60">60 days</form:option>
+            <form:option value="90">90 days</form:option>
+         </form:select>
+      </div>
+      <div class="form-group">
+         <form:label path="subject">Subject</form:label>
+         <form:textarea path="subject" cssClass="form-control" id="subject" rows="1" placeholder="Enter Subject"></form:textarea>
+      </div>
+      <div class="form-group">
+         <form:label path="files" id="fileLabel">Attach Template in Email</form:label>
+         <form:input type="file" multiple="multiple" path="files" id="fileBrowser"/>
+         <!-- <button onclick="event.preventDefault(); deleteFile($('#fileBrowser'));" id="deleteButton">Delete file</button> -->
+         <div id="filesSelected"></div>
+      </div>
+      <div class="form-group">
+         <form:label path="body">Body</form:label>
+         <form:textarea path="body" cssClass="form-control" id="body" rows="5" placeholder="Enter body"></form:textarea>
+      </div>
+      <div class="form-group">
+         <form:label path="department">Select Department</form:label>
+         <form:select id="department" cssClass="form-control" path="department" onchange="createFolderLink()">
+            <form:option value="" label="Select Department">Department</form:option>
+            <c:forEach items="${RequestDocumentForm.availableDepartment}" var="option" varStatus="status">
+               <form:option value="${option.key}">${option.value}</form:option>
+            </c:forEach>
+         </form:select>
+      </div>
+      <div class="form-inline">
+         <div class="form-group">
+            <form:label path="folders[0]">Folder 1</form:label>
+            <form:input path="folders[0]" id ="folder1" cssClass="form-control" oninput="createFolderLink()"/>
+         </div>
+         <div class="form-group">
+            <form:label path="folders[1]">Folder 2</form:label>
+            <form:input path="folders[1]" id ="folder2" cssClass="form-control" oninput="createFolderLink()"/>
+         </div>
+         <div class="form-group">
+            <form:label path="folders[2]">Folder 3</form:label>
+            <form:input path="folders[2]" id ="folder3" cssClass="form-control" oninput="createFolderLink()"/>
+         </div>
+         <div class="form-group">
+            <form:label path="folders[3]">Folder 4</form:label>
+            <form:input path="folders[3]" id ="folder4" cssClass="form-control" oninput="createFolderLink()"/>
+         </div>
+      </div>
+      <div class="form-group">
+         <form:label path="folderLocation">Folder Location</form:label>
+         <input name="folderLocation" id="reviewFolderLocation" readonly/>
+      </div>
+      <button class="btn btn-primary" type="submit">Review</button>
+      <br>
+   </div>
+</form:form>
+
+
+
+confirmation.jsp
+
+<%@ include file="jspf/preHeaderArea.jspf"%>
+<%@page contentType="text/html" import="java.util.*" %>
+<% pageContext.setAttribute("newLineChar", "\r\n"); %>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<link href="/request-document/resources/css/bootstrap.css${asset_id}" rel="stylesheet">
+<link href="/request-document/resources/js/bootstrap.js" rel="stylesheet">
+<link href="/request-document/resources/css/features.css${asset_id}" rel="stylesheet">
+<title>Admin Web Page</title>
+<div class="container">
+   <form:form enctype="multipart/form-data" action="/request-document/confirm"  modelAttribute="RequestDocumentForm" method="post">
+      <br><br>
+      <div class="errorMsg">
+         <form:errors path="*"/>
+      </div>
+      <br>
+      <p><strong>Review</strong></p>
+      <br>      
+      <table class="table table-striped" style="font-size: 90%;">
+         <tr>
+            <th scope="row">To</th>
+            <td>${RequestDocumentForm.toAddresses}</td>
+            <form:input path="toAddresses" type='hidden' id='toAddresses' name='toAddresses' value='${RequestDocumentForm.toAddresses}'/>
+         </tr>
+         <tr>
+            <th scope="row">Cc</th>
+            <td>${RequestDocumentForm.ccAddresses}</td>
+         </tr>
+         <tr>
+            <th scope="row">Send Upload Notification To</th>
+            <td>${RequestDocumentForm.uploadNotificationAddresses}</td>
+         </tr>
+         <tr>
+            <th scope="row">Folder Location</th>
+            <td>${RequestDocumentForm.folderLocation}</td>
+         </tr>
+         <tr>
+            <th scope="row">Attached template in Email</th>
+            <td>
+               <c:forEach var="eachFile" items="${RequestDocumentForm.files}">
+                  <c:set var="eachFiles" value="${eachFile.originalFilename}"/>
+                  <li>${eachFiles}</li>
+               </c:forEach>
+            </td>
+         </tr>
+         <tr>
+            <th scope="row">Subject</th>
+            <td>
+               <p>${RequestDocumentForm.subject}</p>
+            </td>
+         </tr>
+         <tr>
+            <th scope="row"></th>
+            <td>
+               <p><img src="https://dev.rbfcu.org/images/default-source/nbo/others/rbfcu-logo.png"></p>
+               ${fn:replace(RequestDocumentForm.body, newLineChar, '<br>')}
+               <br><br>Please <a>click here</a> to upload documents.
+               <br><br>
+               <p><font color='red'><strong>Note: </strong> Please Do not provide the password protected documents and do not worry this is very secure.</font></p>
+            </td>
+            <form:input path="ccAddresses" type='hidden' value='${RequestDocumentForm.ccAddresses}'/>
+            <form:input path="uploadNotificationAddresses" type='hidden' value='${RequestDocumentForm.uploadNotificationAddresses}'/>
+            <form:input path="linkValidityInDays" type='hidden' value='${RequestDocumentForm.linkValidityInDays}'/>
+            <form:input path="subject" type='hidden' value='${RequestDocumentForm.subject}'/>
+            <form:input path="body" type='hidden' value='${RequestDocumentForm.body}'/>
+            <form:input path="folderLocation" type='hidden' value='${RequestDocumentForm.folderLocation}'/>
+            <form:input path="department" type='hidden' value="${RequestDocumentForm.department}"/>
+            <form:input path="folders[0]" type='hidden' value="${RequestDocumentForm.folders[0]}"/>
+            <form:input path="folders[1]" type='hidden' value="${RequestDocumentForm.folders[1]}"/>
+            <form:input path="folders[2]" type='hidden' value="${RequestDocumentForm.folders[2]}"/>
+            <form:input path="folders[3]" type='hidden' value="${RequestDocumentForm.folders[3]}"/>
+         </tr>
+      </table>
+      <button class="btn btn-primary" onclick="event.preventDefault(); window.history.back();">Previous</button>
+      <button class="btn btn-primary" type="submit">Send</button>
+   </form:form>
+</div>
+
+
+controller
+
+package org.rbfcu.documentupload.admin.controller;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.commons.collections.KeyValue;
+import org.apache.commons.collections.keyvalue.DefaultKeyValue;
+import org.rbfcu.documentupload.admin.dto.RequestDocumentForm;
+import org.rbfcu.documentupload.admin.security.Authorization;
+import org.rbfcu.documentupload.admin.security.AuthorizedUser;
+import org.rbfcu.documentupload.admin.service.RequestDocumentService;
+import org.rbfcu.documentupload.admin.validator.RequestDocumentValidator;
+import org.rbfcu.documentupload.admin.web.UserSession;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.InitBinder;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.SessionAttributes;
+import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+@Controller
+@SessionAttributes("RequestDocumentForm")
+@RequestMapping("/")
+public class LandingController {
+
+	@Autowired
+	private RequestDocumentValidator requestValidator;
+
+	@InitBinder
+	protected void initBinder(WebDataBinder binder) {
+		binder.setValidator(requestValidator);
+	}
+
+	@RequestMapping(method = RequestMethod.GET)
+	public ModelAndView landingPage(HttpServletRequest request) throws Exception {
+		ModelAndView model = new ModelAndView("LandingPage");
+		RequestDocumentForm requestDocumentForm = new RequestDocumentForm();
+		requestDocumentForm.resetFiles();
+		requestDocumentForm.setAvailableDepartment(getAvailableDepartments(request));
+		requestDocumentForm.setCcAddresses(getDefaultLoginAddress(request));
+		requestDocumentForm.setUploadNotificationAddresses(getDefaultLoginAddress(request));
+		model.addObject("RequestDocumentForm", requestDocumentForm);
+		return model;
+	}
+
+	@RequestMapping(value = { "/review" }, method = RequestMethod.POST, consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
+	public String review(@ModelAttribute("RequestDocumentForm") @Validated RequestDocumentForm adminForms, BindingResult result, Model model,
+			HttpServletRequest request) {
+		new RequestDocumentService().getAttachedFiles(adminForms);
+		if (result.hasErrors()) {
+			return "LandingPage";
+		}
+		return "Confirmation";
+	}
+
+	@RequestMapping(value = { "/confirm" }, method = RequestMethod.POST, consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
+	public String confirm(@ModelAttribute("RequestDocumentForm") RequestDocumentForm adminForms, BindingResult result, Model model,
+			HttpServletRequest request, RedirectAttributes attributes) throws Exception {
+		return new RequestDocumentService().sendRequestEmail(adminForms, result, attributes);
+	}
+
+	private List<KeyValue> getAvailableDepartments(HttpServletRequest request) {
+		AuthorizedUser user = new UserSession(request).getAuthorizedUser();
+		List<KeyValue> availableDepartments = new ArrayList<KeyValue>();
+
+		for (Authorization authorization : user.getAuthorizations()) {
+			availableDepartments.add(new DefaultKeyValue(authorization.getRootFolder(), authorization.getName()));
+		}
+
+		return availableDepartments;
+	}
+
+	private String getDefaultLoginAddress(HttpServletRequest request) {
+		return new UserSession(request).getAuthorizedUser().getEmail();
+	}
+}
+
+
+
+
+
+form
+
+package org.rbfcu.documentupload.admin.dto;
+
+import java.util.List;
+
+import org.apache.commons.collections.KeyValue;
+import org.rbfcu.email.client.Attachment;
+import org.springframework.web.multipart.MultipartFile;
+
+public class RequestDocumentForm {
+
+	private String toAddresses;
+	private String ccAddresses;
+	private String uploadNotificationAddresses;
+	private String subject;
+	private List<MultipartFile> files;
+	private String body;
+	private String department;
+	private List<KeyValue> availableDepartment;
+	private String folderLocation;
+	private String[] folders = new String[4];
+	private Long linkValidityInDays;
+	private List<Attachment> attachments;
+
+	public String getToAddresses() {
+		return toAddresses;
+	}
+
+	public void setToAddresses(String toAddresses) {
+		this.toAddresses = toAddresses;
+	}
+
+	public String getCcAddresses() {
+		return ccAddresses;
+	}
+
+	public void setCcAddresses(String ccAddresses) {
+		this.ccAddresses = ccAddresses;
+	}
+
+	public String getUploadNotificationAddresses() {
+		return uploadNotificationAddresses;
+	}
+
+	public void setUploadNotificationAddresses(String uploadNotificationAddresses) {
+		this.uploadNotificationAddresses = uploadNotificationAddresses;
+	}
+
+	public String getSubject() {
+		return subject;
+	}
+
+	public void setSubject(String subject) {
+		this.subject = subject;
+	}
+
+	public List<MultipartFile> getFiles() {
+		return files;
+	}
+
+	public void setFiles(List<MultipartFile> files) {
+		this.files = files;
+	}
+
+	public String getBody() {
+		return body;
+	}
+
+	public void setBody(String body) {
+		this.body = body;
+	}
+
+	public String getDepartment() {
+		return department;
+	}
+
+	public void setDepartment(String department) {
+		this.department = department;
+	}
+
+	public List<KeyValue> getAvailableDepartment() {
+		return availableDepartment;
+	}
+
+	public void setAvailableDepartment(List<KeyValue> availableDepartment) {
+		this.availableDepartment = availableDepartment;
+	}
+
+	public String getFolderLocation() {
+		return folderLocation;
+	}
+
+	public void setFolderLocation(String folderLocation) {
+		this.folderLocation = folderLocation;
+	}
+
+	public String[] getFolders() {
+		return folders;
+	}
+
+	public void setFolders(String[] folders) {
+		this.folders = folders;
+	}
+
+	public Long getLinkValidityInDays() {
+		return linkValidityInDays;
+	}
+
+	public void setLinkValidityInDays(Long linkValidityInDays) {
+		this.linkValidityInDays = linkValidityInDays;
+	}
+
+	public List<Attachment> getAttachments() {
+		return attachments;
+	}
+
+	public void setAttachments(List<Attachment> attachments) {
+		this.attachments = attachments;
+	}
+
+	public void resetFiles() {
+		this.files = null;
+		this.attachments = null;
+	}
+
+}
+
+
+
+requestdocumentservice
+
+
+package org.rbfcu.documentupload.admin.service;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.lang3.StringUtils;
+import org.rbfcu.common.encryption.Base64EncryptionUtility;
+import org.rbfcu.config.EnvConfig;
+import org.rbfcu.documentupload.admin.dto.RequestDocumentForm;
+import org.rbfcu.email.client.Attachment;
+import org.rbfcu.email.client.EmailMessage;
+import org.rbfcu.service.email.EmailSender;
+import org.rbfcu.service.email.config.Configuration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.validation.BeanPropertyBindingResult;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.ObjectError;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+public class RequestDocumentService {
+
+	private static final Logger LOG = LoggerFactory.getLogger(RequestDocumentService.class);
+	private static final String EMAIL_SENT_MSG = "Email was successfully sent. Please proceed if you want to send more.";
+
+	public String sendRequestEmail(RequestDocumentForm adminForm, BindingResult result, RedirectAttributes attributes) {
+		BeanPropertyBindingResult validationResult = buildBindingResult(adminForm);
+		try {
+			EmailMessage email = createEmail(adminForm);
+			EmailSender.getInstance().sendEmail(email);
+			attributes.addFlashAttribute("emailSentMsg", EMAIL_SENT_MSG);
+			return "redirect:/";
+		} catch (Exception e) {
+			LOG.error("Error occured while sending email", e);
+			displayErrorMessage(result, validationResult);
+			return "Confirmation";
+		}
+	}
+
+	public EmailMessage createEmail(RequestDocumentForm adminForm) {
+
+		EmailMessage email = new EmailMessage();
+
+		email.setFromAddress(Configuration.getValue("email.from"));
+		email.setFromName(Configuration.getValue("email.from.name"));
+		email.setSubject("Subject:" + adminForm.getSubject());
+		email.setToAddresses(getToEmailList(adminForm));
+		email.setCcAddresses(getCcEmailList(adminForm));
+		email.setAttachments(adminForm.getAttachments());
+		StringBuilder body = getEmailBody(adminForm);
+		email.setBody(body.toString());
+		LOG.info("Email body: {}", body);
+
+		return email;
+	}
+
+	private List<String> getToEmailList(RequestDocumentForm adminForm) {
+		List<String> emailToList = new ArrayList<String>();
+		if (StringUtils.isNotEmpty(adminForm.getToAddresses())) {
+			String[] arrOfStr = adminForm.getToAddresses().split(";");
+			for (String eachEmail : arrOfStr) {
+				if (isNonRbfcuEmailForStagingEnvironment(eachEmail)) {
+					LOG.warn("Preventing external email to: {}. Instead sending to: {}", eachEmail, "webteam@rbfcu.org");
+					emailToList.add("webteam@rbfcu.org");
+				} else {
+					emailToList.add(eachEmail);
+				}
+
+			}
+		}
+		return emailToList;
+	}
+
+	private boolean isNonRbfcuEmailForStagingEnvironment(String email) {
+		return !EnvConfig.isPrd() && !email.endsWith("@rbfcu.org");
+	}
+
+	private List<String> getCcEmailList(RequestDocumentForm adminForm) {
+		List<String> emailCcList = new ArrayList<String>();
+		if (StringUtils.isNotEmpty(adminForm.getCcAddresses())) {
+			String[] arrOfStr = adminForm.getCcAddresses().split(";");
+			for (String eachEmail : arrOfStr) {
+				emailCcList.add(eachEmail);
+			}
+		}
+		return emailCcList;
+	}
+
+	public void getAttachedFiles(RequestDocumentForm adminForm) {
+		List<Attachment> templateFiles = new ArrayList<Attachment>();
+		try {
+			if (adminForm.getFiles() != null && !adminForm.getFiles().isEmpty()) {
+				List<MultipartFile> files = adminForm.getFiles();
+				for (int index = 0; index < files.size(); index++) {
+					MultipartFile eachFile = files.get(index);
+					Attachment attachment = new Attachment();
+					attachment.setContent(eachFile.getBytes());
+					attachment.setFileName(eachFile.getOriginalFilename());
+					templateFiles.add(attachment);
+				}
+			}
+		} catch (Exception e) {
+
+		}
+		adminForm.setAttachments(templateFiles);
+	}
+
+	private StringBuilder getEmailBody(RequestDocumentForm adminForm) {
+		String timeStampValidTill = getTimeStampValidTill(adminForm.getLinkValidityInDays());
+		StringBuilder body = new StringBuilder();
+		if (!EnvConfig.isPrd()) {
+
+			body.append("<p> This is an email from the staging environment and is sent for testing purposes. </p>");
+			body.append("<p><img src='https://dev.rbfcu.org/images/default-source/nbo/others/rbfcu-logo.png'></p>");
+			body.append(
+					"<p> -------------------------------------------------------------------------------------------------------------------------------- </p>");
+		}
+		body.append(generateBody(adminForm));
+		body.append("<br><p>Please <a href='localhost/uploaddocument/upload/");
+		body.append(generateEncryptedFolderLocation(adminForm));
+		body.append("/");
+		body.append(generateTimeStamp(adminForm));
+		body.append("/");
+		body.append(generateEncryptedNotifier(adminForm));
+		body.append("'> Click here </a>to upload documents.</p>");
+		body.append("<p>Link is valid till " + timeStampValidTill + "</p>");
+		body.append(
+				"<p><font color='red'><strong>Note: </strong> Please Do not provide the password protected documents and do not worry this is very secure.</font></p>");
+		return body;
+	}
+
+	private String generateBody(RequestDocumentForm adminForm) {
+		return adminForm.getBody().replace("\r\n", "<br>");
+	}
+
+	private String generateEncryptedFolderLocation(RequestDocumentForm adminForm) {
+		try {
+			return encryptParams(adminForm.getFolderLocation());
+		} catch (Exception e) {
+			LOG.error("Error occured while encrypting URL");
+		}
+		return StringUtils.EMPTY;
+	}
+
+	private String generateTimeStamp(RequestDocumentForm adminForm) {
+		String timeStamp = getTimeStampValidTill(adminForm.getLinkValidityInDays());
+		try {
+			return encryptParams(timeStamp);
+		} catch (Exception e) {
+			LOG.error("Error occured while encrypting Time Stamp");
+		}
+		return StringUtils.EMPTY;
+	}
+
+	private String generateEncryptedNotifier(RequestDocumentForm adminForm) {
+		try {
+			return encryptParams(adminForm.getUploadNotificationAddresses());
+		} catch (Exception e) {
+			LOG.error("Error occured while encrypting email Notifier");
+		}
+		return StringUtils.EMPTY;
+	}
+
+	public String encryptParams(String encriptionText) {
+		String encryptedParams = Base64EncryptionUtility.encrypt(encriptionText, EnvConfig.CRYPTO_KEY);
+		try {
+			char[] encodedParams = Hex.encodeHex(encryptedParams.getBytes());
+			return new String(encodedParams);
+		} catch (Exception e) {
+			LOG.error("Error occured while encoding: " + e);
+		}
+		return StringUtils.EMPTY;
+	}
+
+	private String getTimeStampValidTill(Long LinkValidityInDays) {
+		return LocalDateTime.now().plusDays(LinkValidityInDays).toString();
+	}
+
+	private BeanPropertyBindingResult buildBindingResult(RequestDocumentForm adminForms) {
+		BeanPropertyBindingResult result = new BeanPropertyBindingResult(adminForms, adminForms.getClass().getName());
+		return result;
+	}
+
+	private void displayErrorMessage(BindingResult result, BeanPropertyBindingResult validationResult) {
+		validationResult.rejectValue("subject", "display.error.msg");
+		result = copyErrorsToResult(result, validationResult);
+	}
+
+	private BindingResult copyErrorsToResult(BindingResult result, BeanPropertyBindingResult validationResult) {
+		for (ObjectError error : validationResult.getAllErrors()) {
+			result.addError(error);
+		}
+		return result;
+	}
+
+}
+
+
+
+
+
+
+
+
+
+
+validator
+
+
+package org.rbfcu.documentupload.admin.validator;
+
+import org.apache.commons.lang3.StringUtils;
+import org.rbfcu.documentupload.admin.dto.RequestDocumentForm;
+import org.springframework.stereotype.Component;
+import org.springframework.validation.Errors;
+import org.springframework.validation.ValidationUtils;
+import org.springframework.validation.Validator;
+
+@Component
+public class RequestDocumentValidator implements Validator {
+	private static final String EMAIL_REGX = "^[_A-Za-z0-9-]+(\\.[_A-Za-z0-9-]+)*@[A-Za-z0-9]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
+
+	public boolean supports(Class<?> clazz) {
+		return RequestDocumentForm.class.isAssignableFrom(clazz);
+	}
+
+	public void validate(Object target, Errors errors) {
+		RequestDocumentForm form = (RequestDocumentForm) target;
+
+		validateToAddress(form, errors);
+		validateCcAddress(form, errors);
+		validateNotificationAddress(form, errors);
+		validateUploadLinkValidTill(form, errors);
+		validateSubject(form, errors);
+		validateRequiredDocuments(form, errors);
+		validateDepartment(form, errors);
+	}
+
+	private void validateToAddress(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isBlank(form.getToAddresses())) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "toAddresses", "error.to.address.missing");
+		} else {
+			if (StringUtils.isNotEmpty(form.getToAddresses())) {
+				String[] strArray = form.getToAddresses().split(";");
+				for (String eachArry : strArray) {
+					Boolean isValid = eachArry.trim().matches(EMAIL_REGX);
+					if (!isValid) {
+						errors.rejectValue("toAddresses", "error.to.address.email.format");
+					}
+				}
+			}
+		}
+	}
+
+	private void validateCcAddress(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isBlank(form.getCcAddresses())) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "ccAddresses", "error.cc.address.missing");
+		} else {
+			if (StringUtils.isNotEmpty(form.getCcAddresses())) {
+				String[] strArray = form.getCcAddresses().split(";");
+				for (String eachArry : strArray) {
+					Boolean isValid = eachArry.trim().matches(EMAIL_REGX);
+					if (!isValid) {
+						errors.rejectValue("ccAddresses", "error.cc.address.email.format");
+					}
+				}
+			}
+		}
+	}
+
+	private void validateNotificationAddress(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isBlank(form.getUploadNotificationAddresses())) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "uploadNotificationAddresses", "error.notification.address.missing");
+		} else {
+			if (StringUtils.isNotEmpty(form.getUploadNotificationAddresses())) {
+				String[] strArray = form.getUploadNotificationAddresses().split(";");
+				for (String eachArry : strArray) {
+					Boolean isValid = eachArry.trim().matches(EMAIL_REGX);
+					if (!isValid) {
+						errors.rejectValue("uploadNotificationAddresses", "error.notification.address.email.format");
+					}
+				}
+			}
+		}
+	}
+
+	private void validateUploadLinkValidTill(RequestDocumentForm form, Errors errors) {
+		if (form.getLinkValidityInDays() == null) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "linkValidityInDays", "error.linkValidityInDays.missing");
+		}
+	}
+
+	private void validateSubject(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isBlank(form.getSubject())) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "subject", "error.subject.missing");
+		}
+	}
+
+	private void validateRequiredDocuments(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isBlank(form.getBody())) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "body", "error.required.documents.missing");
+		}
+	}
+
+	private void validateDepartment(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isBlank(form.getDepartment())) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "department", "error.department.missing");
+		}
+	}
+
+}
+
+
+css
+
+
+.container {	
+	width: 45%;
+}
+
+.container input.form-control {
+	/* allows labels to sit on top of input*/
+    display: block;
+    /* gives padding to bottom of inputs box*/
+    margin-bottom: 15px;
+}
+
+#fileLabel{
+	float: left;
+	clear:both;  	
+}
+
+ #fileBrowser{
+	width:60%
+	float: left;
+	clear:both;	 	
+}
+
+#deleteButton{
+	float: right;
+	clear:both;
+	margin-right: 20%;
+}
+
+ #reviewFolderLocation{  
+    background-color: Transparent;
+    background-repeat:no-repeat;
+    border: none;
+    cursor:pointer;
+    overflow: hidden;
+    outline:none;
+    width: 100%;
+  }
+  
+  div.errorMsg{
+  	color: #FF4500;
+  }
+  
+  div.successMsg{
+  	color: #32CD32;
+  }
+  
+/*   attach template css   */
+
+@import url('https://fonts.googleapis.com/css?family=Open+Sans');
+ul li.fileName {
+	list-style-type: none;
+	margin: 0;
+	text-indent: 0;
+	padding-bottom: 10px;
+	padding-left: 3.2em;
+	border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+ul li.fileName span {
+	display: inline-block;
+	color: #686666;
+	cursor: default;
+	vertical-align: text-bottom;
+	width: 25%;
+	
+}
+
+ul li.fileName span:first-child {
+	
+    	width: 45%;
+    	color: black;
+    	text-overflow: ellipsis;
+    	white-space: nowrap;
+    	display: inline-block;
+    	overflow: hidden;
+    	padding-right: 1em;
+}
+
+ul li.fileName span:last-child {
+	float: right;
+    	color: #1C5495;
+    	text-decoration: underline;
+    	cursor: pointer;
+    	padding-right: 1em;
+    	width: 24%;
+   		display: inline;
+}
+
+  #filesSelected ul {
+	padding-left: 0em;
+}
+
+ul li.fileName span {
+	margin-bottom: 0;
+}
+
+
+
+
+aplication.config
+
+
+doc.upload.access.url.root=https://in-uat.rbfcu.org
+doc.upload.access.url.endpoint=/DocView/sf?id=%s
+
+business.solutions.ad.group=CN=GL Web Team,CN=GL Business Lending
+mortgage.lending.ad.group=CN=GL Web Team
+
+business.solutions.admin=ajain,sdhital
+mortgage.lending.admin=ajain,sdhital
+
+
+
+message.properties
+
+error.to.address.missing= Please provide a to address.
+error.to.address.email.format= Enter a correct email format for TO address.
+error.cc.address.missing= Please provide a CC address.
+error.cc.address.email.format= Enter a correct email format for CC address.
+error.notification.address.missing= Please provide a notifier email address.
+error.notification.address.email.format= Enter a correct email format for notifier email.
+error.linkValidityInDays.missing = Please select upload link valid days.
+error.subject.missing= Please provide the subject.
+error.required.documents.missing= Please provide a list of required documents that are needed.
+error.department.missing= Please select Department.
+email.send.success.msg= Email was successfully sent.
+display.error.msg= Error occured while sending email.
+
+
