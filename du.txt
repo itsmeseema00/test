@@ -8,6 +8,25 @@ getUploadedFiles
 
 
 
+
+
+
+$("li.fileName > span.remove").bind('click', function (event){ debugger;
+	event.preventDefault();
+	var form = $(this).closest('RequestDocumentForm');
+	form = form.serializeArray();
+	form = form.concat([
+	    {name: "files", value: "0"}
+	]);
+	$(".RequestDocumentForm").submit();
+	
+});
+
+
+
+
+
+
 js
 
 function createFolderLink() {
