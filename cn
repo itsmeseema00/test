@@ -1,0 +1,19 @@
+function bindRemoveEvent() {
+        $("li.fileName > span.remove").bind('click',function (event) {
+
+            var fileIndexToRemove = $(this).parent().index();
+            //filesToUpload.splice(fileIndexToRemove, 1);
+            var filesToUpload1 = [];
+            for (var i = 0; i < filesToUpload.length; i++) {
+                if (i != fileIndexToRemove) {
+                    filesToUpload1.push(filesToUpload[i]);
+                }
+            }
+        filesToUpload = [];
+        filesToUpload = filesToUpload1;
+            for (var i = 0; i < filesToUpload.length; i++) {
+                formParams.append("files", filesToUpload[i]);
+            }
+            updateFilesSelected();
+        });
+    }
