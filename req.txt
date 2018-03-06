@@ -1,0 +1,1734 @@
+package org.rbfcu.documentupload.admin.controller;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+
+import org.apache.commons.collections.KeyValue;
+import org.apache.commons.collections.keyvalue.DefaultKeyValue;
+import org.apache.commons.lang.StringUtils;
+import org.rbfcu.documentupload.admin.dto.RequestDocumentForm;
+import org.rbfcu.documentupload.admin.dto.RequestDocumentSession;
+import org.rbfcu.documentupload.admin.security.Authorization;
+import org.rbfcu.documentupload.admin.security.AuthorizedUser;
+import org.rbfcu.documentupload.admin.service.RequestDocumentService;
+import org.rbfcu.documentupload.admin.validator.RequestDocumentValidator;
+import org.rbfcu.documentupload.admin.web.UserSession;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.InitBinder;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.SessionAttributes;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+@Controller
+@SessionAttributes("RequestDocumentForm")
+public class LandingController {
+	private static final Logger LOG = LoggerFactory.getLogger(LandingController.class);
+
+	@Autowired
+	private RequestDocumentValidator requestValidator;
+
+	@Autowired
+	private RequestDocumentService requestDocumentService;
+
+	@InitBinder
+	protected void initBinder(WebDataBinder binder) {
+		binder.setValidator(requestValidator);
+	}
+
+	@RequestMapping("/")
+	public String landingPage(HttpServletRequest request, Model model) throws Exception {
+		if (StringUtils.isBlank(request.getParameter("id"))) {
+			RequestDocumentForm requestDocumentForm = new RequestDocumentForm();
+			requestDocumentForm.resetFiles();
+			requestDocumentForm.setAvailableDepartment(getAvailableDepartments(request));
+			requestDocumentForm.setCcAddresses(getDefaultLoginAddress(request));
+			requestDocumentForm.setUploadNotificationAddresses(getDefaultLoginAddress(request));
+			model.addAttribute("RequestDocumentForm", requestDocumentForm);
+			LOG.debug("Setting values for request document form");
+		}
+		LOG.debug("loading landing page for request document");
+		LOG.info("Current User: {}", getDefaultLoginUser(request));
+		return "LandingPage";
+	}
+
+	@RequestMapping(value = { "/review" }, method = RequestMethod.POST, consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
+	public String review(@ModelAttribute("RequestDocumentForm") @Validated RequestDocumentForm adminForms, BindingResult result, Model model,
+			HttpServletRequest request) {
+		RequestDocumentSession requestDocumentSession = new RequestDocumentSession(request);
+		requestDocumentService.getAttachedFiles(adminForms);
+		requestDocumentSession.setRequestDocumentForm(adminForms);
+		model.addAttribute("RequestDocumentForm", adminForms);
+		if (result.hasErrors()) {
+			LOG.error("Error occured while validating Request Document Form");
+			return "LandingPage";
+		}
+		LOG.debug("loading Review page for request document");
+		return "Confirmation";
+	}
+
+	@RequestMapping(value = { "/confirm" }, method = RequestMethod.POST, consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
+	public String confirm(@ModelAttribute("RequestDocumentForm") RequestDocumentForm adminForms, BindingResult result, Model model,
+			HttpServletRequest request, RedirectAttributes attributes) throws Exception {
+		return new RequestDocumentService().sendRequestEmail(adminForms, result, attributes, getDefaultLoginUser(request));
+	}
+
+	@RequestMapping(value = { "/timeout" }, method = RequestMethod.GET)
+	public String logoff(HttpSession session, Model model) {
+		long currentTimeInMillis = System.currentTimeMillis();
+		long lastAccessedTimeInMillis = session.getLastAccessedTime();
+		long lastAccessed = (currentTimeInMillis - lastAccessedTimeInMillis) / 1000;
+		LOG.info("Timing out. Configured timeout: {} seconds, Last accessed: {} seconds ago", session.getMaxInactiveInterval(), lastAccessed);
+		session.invalidate();
+
+		return "Timeout";
+	}
+
+	@RequestMapping(value = { "/pingServer" }, method = RequestMethod.GET)
+	public String ping(HttpServletRequest request, Model model) {
+
+		long currentTimeInMillis = System.currentTimeMillis();
+		long lastAccessedTimeInMillis = request.getSession().getLastAccessedTime();
+		long lastAccessed = (currentTimeInMillis - lastAccessedTimeInMillis) / 1000;
+		LOG.info("Resetting timeout. Configured timeout: {} seconds, Last accessed: {} seconds ago", request.getSession().getMaxInactiveInterval(),
+				lastAccessed);
+
+		return "Timeout";
+	}
+
+	private List<KeyValue> getAvailableDepartments(HttpServletRequest request) {
+		AuthorizedUser user = new UserSession(request).getAuthorizedUser();
+		List<KeyValue> availableDepartments = new ArrayList<KeyValue>();
+
+		for (Authorization authorization : user.getAuthorizations()) {
+			availableDepartments.add(new DefaultKeyValue(authorization.getRootFolder(), authorization.getName()));
+		}
+		return availableDepartments;
+	}
+
+	private String getDefaultLoginAddress(HttpServletRequest request) {
+		return new UserSession(request).getAuthorizedUser().getEmail();
+	}
+
+	private String getDefaultLoginUser(HttpServletRequest request) {
+		return new UserSession(request).getAuthorizedUser().getUsername();
+	}
+}
+
+
+
+
+package org.rbfcu.documentupload.admin.dto;
+
+import java.util.List;
+
+import org.apache.commons.collections.KeyValue;
+import org.rbfcu.email.client.Attachment;
+import org.springframework.web.multipart.MultipartFile;
+
+public class RequestDocumentForm {
+
+	private String toAddresses;
+	private String ccAddresses;
+	private String uploadNotificationAddresses;
+	private String subject;
+	private List<MultipartFile> files;
+	private String body;
+	private String department;
+	private List<KeyValue> availableDepartment;
+	private String folderLocation;
+	private String[] folders = new String[4];
+	private Long linkValidityInDays;
+	private List<Attachment> attachments;
+
+	public String getToAddresses() {
+		return toAddresses;
+	}
+
+	public void setToAddresses(String toAddresses) {
+		this.toAddresses = toAddresses;
+	}
+
+	public String getCcAddresses() {
+		return ccAddresses;
+	}
+
+	public void setCcAddresses(String ccAddresses) {
+		this.ccAddresses = ccAddresses;
+	}
+
+	public String getUploadNotificationAddresses() {
+		return uploadNotificationAddresses;
+	}
+
+	public void setUploadNotificationAddresses(String uploadNotificationAddresses) {
+		this.uploadNotificationAddresses = uploadNotificationAddresses;
+	}
+
+	public String getSubject() {
+		return subject;
+	}
+
+	public void setSubject(String subject) {
+		this.subject = subject;
+	}
+
+	public List<MultipartFile> getFiles() {
+		return files;
+	}
+
+	public void setFiles(List<MultipartFile> files) {
+		this.files = files;
+	}
+
+	public String getBody() {
+		return body;
+	}
+
+	public void setBody(String body) {
+		this.body = body;
+	}
+
+	public String getDepartment() {
+		return department;
+	}
+
+	public void setDepartment(String department) {
+		this.department = department;
+	}
+
+	public List<KeyValue> getAvailableDepartment() {
+		return availableDepartment;
+	}
+
+	public void setAvailableDepartment(List<KeyValue> availableDepartment) {
+		this.availableDepartment = availableDepartment;
+	}
+
+	public String getFolderLocation() {
+		return folderLocation;
+	}
+
+	public void setFolderLocation(String folderLocation) {
+		this.folderLocation = folderLocation;
+	}
+
+	public String[] getFolders() {
+		return folders;
+	}
+
+	public void setFolders(String[] folders) {
+		this.folders = folders;
+	}
+
+	public Long getLinkValidityInDays() {
+		return linkValidityInDays;
+	}
+
+	public void setLinkValidityInDays(Long linkValidityInDays) {
+		this.linkValidityInDays = linkValidityInDays;
+	}
+
+	public List<Attachment> getAttachments() {
+		return attachments;
+	}
+
+	public void setAttachments(List<Attachment> attachments) {
+		this.attachments = attachments;
+	}
+
+	public void resetFiles() {
+		this.files = null;
+		this.attachments = null;
+	}
+
+}
+
+
+package org.rbfcu.documentupload.admin.service;
+
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.lang3.StringUtils;
+import org.rbfcu.common.encryption.Base64EncryptionUtility;
+import org.rbfcu.config.BaseConfig;
+import org.rbfcu.config.EnvConfig;
+import org.rbfcu.documentupload.admin.dto.RequestDocumentForm;
+import org.rbfcu.documentupload.admin.exception.EmailBodyException;
+import org.rbfcu.email.client.Attachment;
+import org.rbfcu.email.client.EmailMessage;
+import org.rbfcu.service.email.EmailSender;
+import org.rbfcu.service.email.config.Configuration;
+import org.rbfcu.service.security.SecurityService;
+import org.rbfcu.service.security.request.SanitizeHtmlRequest;
+import org.rbfcu.service.security.response.SanitizeHtmlResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.validation.BeanPropertyBindingResult;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.ObjectError;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+@Service
+public class RequestDocumentService {
+
+	private SecurityService securityService;
+
+	private static final Logger LOG = LoggerFactory.getLogger(RequestDocumentService.class);
+	private static final String EMAIL_SENT_MSG = "Your email was successfully sent.";
+
+	public String sendRequestEmail(RequestDocumentForm adminForm, BindingResult result, RedirectAttributes attributes, String user) {
+		BeanPropertyBindingResult validationResult = buildBindingResult(adminForm);
+		try {
+			EmailMessage email = createEmail(adminForm);
+			EmailSender.getInstance().sendEmail(email);
+			attributes.addFlashAttribute("emailSentMsg", EMAIL_SENT_MSG);
+			LOG.info("Email was successfully sent by: {} to : {} with folder location: {}", user, email.getToAddresses(),
+					adminForm.getFolderLocation());
+			return "redirect:/";
+		} catch (Exception e) {
+			LOG.error("Error occured while sending email by: {} ", user, e);
+			displayErrorMessage(result, validationResult);
+			return "Confirmation";
+		}
+	}
+
+	public EmailMessage createEmail(RequestDocumentForm adminForm) {
+
+		EmailMessage email = new EmailMessage();
+
+		email.setFromAddress(Configuration.getValue("email.from"));
+		email.setFromName(Configuration.getValue("email.from.name"));
+		email.setSubject(adminForm.getSubject());
+		email.setToAddresses(getToEmailList(adminForm));
+		email.setCcAddresses(getCcEmailList(adminForm));
+		email.setAttachments(adminForm.getAttachments());
+		String body = getEmailBody(adminForm);
+		email.setBody(body.toString());
+		LOG.info("Email body: {}", body);
+
+		return email;
+	}
+
+	private List<String> getToEmailList(RequestDocumentForm adminForm) {
+		List<String> emailToList = new ArrayList<String>();
+		if (StringUtils.isNotEmpty(adminForm.getToAddresses())) {
+			String[] arrOfStr = adminForm.getToAddresses().split(";");
+			for (String eachEmail : arrOfStr) {
+				if (isNonRbfcuEmailForStagingEnvironment(eachEmail)) {
+					LOG.warn("Preventing external email to: {}. Instead sending to: {}", eachEmail, "webteam@rbfcu.org");
+					emailToList.add("webteam@rbfcu.org");
+				} else {
+					emailToList.add(eachEmail);
+				}
+			}
+			LOG.debug("TO email addressess: {}", emailToList);
+		}
+		return emailToList;
+	}
+
+	private boolean isNonRbfcuEmailForStagingEnvironment(String email) {
+		return !EnvConfig.isPrd() && !email.endsWith("@rbfcu.org");
+	}
+
+	private List<String> getCcEmailList(RequestDocumentForm adminForm) {
+		List<String> emailCcList = new ArrayList<String>();
+		if (StringUtils.isNotEmpty(adminForm.getCcAddresses())) {
+			String[] arrOfStr = adminForm.getCcAddresses().split(";");
+			for (String eachEmail : arrOfStr) {
+				emailCcList.add(eachEmail);
+			}
+			LOG.debug("Cc email addressess: {}", emailCcList);
+		}
+		return emailCcList;
+	}
+
+	public void getAttachedFiles(RequestDocumentForm adminForm) {
+		List<Attachment> templateFiles = new ArrayList<Attachment>();
+		try {
+			if (adminForm.getFiles() != null && !adminForm.getFiles().isEmpty()) {
+				List<MultipartFile> files = adminForm.getFiles();
+
+				for (int index = 0; index < files.size(); index++) {
+					LOG.debug("Content type: {}", files.get(index).getContentType());
+					MultipartFile eachFile = files.get(index);
+					Attachment attachment = new Attachment();
+					attachment.setContent(eachFile.getBytes());
+					attachment.setContentType(files.get(index).getContentType());
+					attachment.setFileName(eachFile.getOriginalFilename());
+					templateFiles.add(attachment);
+				}
+				LOG.debug("Attached templates: {}", templateFiles);
+			}
+		} catch (Exception e) {
+			LOG.error("Error occured while getting template.", e);
+		}
+		adminForm.setAttachments(templateFiles);
+	}
+
+	private String getEmailBody(RequestDocumentForm adminForm) {
+		String timeStampValidTill = getTimeStampValidTill(adminForm.getLinkValidityInDays());
+		String body = "";
+		if (!EnvConfig.isPrd()) {
+
+			body = "<p> This is an email from the staging environment and is sent for testing purposes. </p>";
+			body += "<p> ---------------------------------------------------------------------------------------------------------------------------------------------------------------- </p>";
+		}
+
+		body += BaseConfig.getInstance().getValue("email.template");
+		body = body.replace("[body]", generateBody(adminForm));
+		body = body.replace("[uploadLink]", BaseConfig.getInstance().getValue("host.name") + "/upload-document/upload/"
+				+ generateEncryptedFolderLocation(adminForm) + "/" + generateTimeStamp(adminForm) + "/" + generateEncryptedNotifier(adminForm));
+		body = body.replace("[date]", timeStampValidTill);
+		return body;
+	}
+
+	private String generateBody(RequestDocumentForm adminForm) {
+		String body = "";
+		try {
+			body = adminForm.getBody().replace("\r\n", "<br>");
+			body = getSanitizeHtml(body);
+			LOG.debug("Sanitize Message : {}", body);
+		} catch (Exception e) {
+			LOG.error("unable to sanitize message", e);
+		}
+		return body;
+	}
+
+	public String getSanitizeHtml(String msg) throws Exception {
+		String message = null;
+		SanitizeHtmlRequest request = new SanitizeHtmlRequest();
+		request.setHtml(msg);
+		SanitizeHtmlResponse response = getSecurityService().sanitize(request);
+		if (response != null && response.isValid()) {
+			message = response.getHtml();
+		} else {
+			LOG.error("Error occured while sanitizing body.");
+			throw new EmailBodyException(response == null ? "" : response.getFirstError().getCode());
+		}
+		return message;
+	}
+
+	public SecurityService getSecurityService() {
+		if (securityService == null) {
+			return new SecurityService();
+		}
+		return securityService;
+	}
+
+	private String generateEncryptedFolderLocation(RequestDocumentForm adminForm) {
+		try {
+			return encryptParams(adminForm.getFolderLocation());
+		} catch (Exception e) {
+			LOG.error("Error occured while encrypting URL");
+		}
+		return StringUtils.EMPTY;
+	}
+
+	private String generateTimeStamp(RequestDocumentForm adminForm) {
+		String timeStamp = getTimeStampValidTill(adminForm.getLinkValidityInDays());
+		try {
+			return encryptParams(timeStamp);
+		} catch (Exception e) {
+			LOG.error("Error occured while encrypting Time Stamp");
+		}
+		return StringUtils.EMPTY;
+	}
+
+	private String generateEncryptedNotifier(RequestDocumentForm adminForm) {
+		try {
+			return encryptParams(adminForm.getUploadNotificationAddresses());
+		} catch (Exception e) {
+			LOG.error("Error occured while encrypting email Notifier");
+		}
+		return StringUtils.EMPTY;
+	}
+
+	public String encryptParams(String encriptionText) {
+		String encryptedParams = Base64EncryptionUtility.encrypt(encriptionText, EnvConfig.CRYPTO_KEY);
+		try {
+			char[] encodedParams = Hex.encodeHex(encryptedParams.getBytes());
+			return new String(encodedParams);
+		} catch (Exception e) {
+			LOG.error("Error occured while encoding: " + e);
+		}
+		return StringUtils.EMPTY;
+	}
+
+	private String getTimeStampValidTill(Long LinkValidityInDays) {
+		LocalDate localDate = LocalDate.now().plusDays(LinkValidityInDays);
+		Date date = Date.from(localDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+		DateFormat formatter = new SimpleDateFormat("MM/dd/yyyy");
+		return formatter.format(date);
+	}
+
+	private BeanPropertyBindingResult buildBindingResult(RequestDocumentForm adminForms) {
+		BeanPropertyBindingResult result = new BeanPropertyBindingResult(adminForms, adminForms.getClass().getName());
+		return result;
+	}
+
+	private void displayErrorMessage(BindingResult result, BeanPropertyBindingResult validationResult) {
+		validationResult.rejectValue("subject", "display.error.msg");
+		result = copyErrorsToResult(result, validationResult);
+	}
+
+	private BindingResult copyErrorsToResult(BindingResult result, BeanPropertyBindingResult validationResult) {
+		for (ObjectError error : validationResult.getAllErrors()) {
+			result.addError(error);
+		}
+		return result;
+	}
+
+}
+
+package org.rbfcu.documentupload.admin.validator;
+
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.rbfcu.config.BaseConfig;
+import org.rbfcu.documentupload.admin.dto.DocumentType;
+import org.rbfcu.documentupload.admin.dto.RequestDocumentForm;
+import org.springframework.stereotype.Component;
+import org.springframework.validation.Errors;
+import org.springframework.validation.ValidationUtils;
+import org.springframework.validation.Validator;
+import org.springframework.web.multipart.MultipartFile;
+
+@Component
+public class RequestDocumentValidator implements Validator {
+	private static final String EMAIL_REGX = "^[_A-Za-z0-9-]+(\\.[_A-Za-z0-9-]+)*@[A-Za-z0-9]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
+	private static final String EMAIL_REGX_RBFCU = "^[_A-Za-z0-9-]+(\\.[_A-Za-z0-9-]+)*@rbfcu.org$";
+	private static final String FAILOVER_FILE_SIZE_MESSAGE = "Please provide a file of smaller size.";
+
+	public boolean supports(Class<?> clazz) {
+		return RequestDocumentForm.class.isAssignableFrom(clazz);
+	}
+
+	public void validate(Object target, Errors errors) {
+		RequestDocumentForm form = (RequestDocumentForm) target;
+
+		validateToAddress(form, errors);
+		validateCcAddress(form, errors);
+		validateNotificationAddress(form, errors);
+		validateUploadLinkValidTill(form, errors);
+		validateSubject(form, errors);
+		validateRequiredDocuments(form, errors);
+		validateDepartment(form, errors);
+		validateFolder(form, errors);
+		validateMissingSubfolder(form, errors);
+		validateFileSizeAndType(form, errors);
+	}
+
+	public void validateFileSizeAndType(RequestDocumentForm form, Errors errors) {
+		if (form.getFiles() != null && !form.getFiles().isEmpty()) {
+			validateFileSize(form, errors);
+			validateFileType(form, errors);
+		}
+	}
+
+	private void validateToAddress(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isBlank(form.getToAddresses())) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "toAddresses", "error.to.address.missing");
+		} else {
+			if (StringUtils.isNotEmpty(form.getToAddresses())) {
+				String[] strArray = form.getToAddresses().split(";");
+				for (String eachArry : strArray) {
+					Boolean isValid = eachArry.trim().matches(EMAIL_REGX);
+					if (!isValid) {
+						errors.rejectValue("toAddresses", "error.to.address.email.format");
+					}
+				}
+			}
+		}
+	}
+
+	private void validateCcAddress(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isBlank(form.getCcAddresses())) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "ccAddresses", "error.cc.address.missing");
+		} else {
+			if (StringUtils.isNotEmpty(form.getCcAddresses())) {
+				String[] strArray = form.getCcAddresses().split(";");
+				for (String eachArry : strArray) {
+					Boolean isValid = eachArry.trim().matches(EMAIL_REGX);
+					if (!isValid) {
+						errors.rejectValue("ccAddresses", "error.cc.address.email.format");
+					}
+				}
+			}
+		}
+	}
+
+	private void validateNotificationAddress(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isBlank(form.getUploadNotificationAddresses())) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "uploadNotificationAddresses", "error.notification.email.missing");
+		} else {
+			if (StringUtils.isNotEmpty(form.getUploadNotificationAddresses())) {
+				String[] strArray = form.getUploadNotificationAddresses().split(";");
+				for (String eachArry : strArray) {
+					Boolean isValid = eachArry.trim().matches(EMAIL_REGX_RBFCU);
+					if (!isValid) {
+						errors.rejectValue("uploadNotificationAddresses", "error.notification.email.domain");
+					}
+				}
+			}
+		}
+	}
+
+	private void validateUploadLinkValidTill(RequestDocumentForm form, Errors errors) {
+		if (form.getLinkValidityInDays() == null) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "linkValidityInDays", "error.linkValidityInDays.missing");
+		}
+	}
+
+	private void validateSubject(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isBlank(form.getSubject())) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "subject", "error.subject.missing");
+		}
+	}
+
+	private void validateRequiredDocuments(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isBlank(form.getBody())) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "body", "error.required.documents.missing");
+		}
+	}
+
+	private void validateDepartment(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isBlank(form.getDepartment())) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "department", "error.department.missing");
+		}
+	}
+
+	private void validateFolder(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isBlank(form.getFolders()[0])) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "folders[0]", "error.folder1.missing");
+		}
+	}
+
+	private void validateMissingSubfolder(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isNotBlank(form.getFolders()[3]) && StringUtils.isBlank(form.getFolders()[2])
+				&& StringUtils.isBlank(form.getFolders()[1])) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "folders[1]", "error.skipping.subfolder2and3");
+		} else if (StringUtils.isNotBlank(form.getFolders()[2]) && StringUtils.isBlank(form.getFolders()[1])) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "folders[1]", "error.skipping.subfolder2");
+		} else if (StringUtils.isNotBlank(form.getFolders()[3]) && StringUtils.isBlank(form.getFolders()[2])) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "folders[2]", "error.skipping.subfolder3");
+		}
+	}
+
+	private Errors validateFileSize(RequestDocumentForm form, Errors errors) {
+		long maxSizeInMegaBytes = BaseConfig.getInstance().getIntValue("doc.upload.max.size.in.megabytes");
+
+		long maxSizeInBytes = maxSizeInMegaBytes * 1024 * 1024;
+
+		String maxAllowedSize = maxSizeInMegaBytes + " MB";
+		for (MultipartFile documentToUpload : form.getFiles()) {
+
+			if (documentToUpload.getSize() > maxSizeInBytes) {
+				errors.rejectValue("files", "error.file.size.limit", new Object[] { maxAllowedSize }, FAILOVER_FILE_SIZE_MESSAGE);
+				break;
+			}
+
+		}
+		return errors;
+	}
+
+	private Errors validateFileType(RequestDocumentForm form, Errors errors) {
+		for (MultipartFile documentToUpload : form.getFiles()) {
+			if (isNotAnAllowedType(documentToUpload.getContentType())) {
+				errors.rejectValue("files", "error.file.permitted.type");
+				break;
+			}
+		}
+
+		return errors;
+	}
+
+	private boolean isNotAnAllowedType(String contentType) {
+		return !isAnAllowedType(contentType);
+	}
+
+	private boolean isAnAllowedType(String contentType) {
+		boolean isAllowed = false;
+		DocumentType[] allowedTypes = DocumentType.values();
+
+		if (ArrayUtils.isNotEmpty(allowedTypes)) {
+			for (DocumentType allowedType : allowedTypes) {
+				if (StringUtils.equalsIgnoreCase(contentType, allowedType.getContentType())) {
+					isAllowed = true;
+					break;
+				}
+			}
+		}
+		return isAllowed;
+	}
+
+}
+
+package org.rbfcu.documentupload.admin.dto;
+
+public enum DocumentType {
+
+	WORD_2003("doc", "application/msword"),
+	WORD("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+	PDF("pdf", "application/pdf"),
+	IMAGE_PNG("png", "image/png"),
+	IMAGE_JPEG("jpeg", "image/jpeg");
+
+	private String fileExtension;
+	private String contentType;
+
+	private DocumentType(String fileExtension, String contentType) {
+		this.fileExtension = fileExtension;
+		this.contentType = contentType;
+	}
+
+	public String getFileExtension() {
+		return fileExtension;
+	}
+
+	public void setFileExtension(String fileExtension) {
+		this.fileExtension = fileExtension;
+	}
+
+	public String getContentType() {
+		return contentType;
+	}
+
+	public void setContentType(String contentType) {
+		this.contentType = contentType;
+	}
+}
+
+
+<%@ include file="includes/preHeaderArea.jspf"%>
+<tiles:insertTemplate template="/WEB-INF/templates/RequestDocumentTemplate.jsp">
+<tiles:putAttribute name="title" value="Request Document" />
+   <tiles:putAttribute name="head" cascade="true">
+      <script type="text/javascript" src="/request-document/resources/js/requestdocument.js${asset_id}"></script>
+      <script type="text/javascript" src="/request-document/resources/js/confirmation.js${asset_id}"></script>
+      <script>
+         $(document).ready(function () {
+         removeSpinner();
+          var dept = $("#department").val();
+          if (dept != "Department" && dept != " " && dept != "") {
+              createFolderLink();
+          }
+         });
+      </script>
+   </tiles:putAttribute>
+   <tiles:putAttribute name="content" cascade="true">
+      <div>
+      <%@ include file="includes/timeoutRedirectInclude.jspf" %>      
+         <form:form enctype="multipart/form-data" action="/request-document/review" id="fileUploadForm" modelAttribute="RequestDocumentForm" method="post">            
+              <div class="container">
+               <div class="errorMsg">
+                  <form:errors path="*" />
+               </div>
+               <c:if test="${not empty emailSentMsg}">
+                  <p class="alert alert-success" style="text-align: center;">${emailSentMsg}</p>
+               </c:if>
+               <div class="alert alert-info change-background-color">
+               <p style="text-align:center"><img src="/request-document/resources/images/blue-round-info-sign.svg" class="info-icon">&nbsp;&nbsp;This application gives RBFCU employees the ability to request documents from members or applicants.  The member will be sent an upload link they can
+                go to upload their files.  Once the files have been uploaded, the employee will receive an email notification, including the folder location to go to access the documents.</p>
+               </div>
+               <h1 class="form-container-row-head">MEMBER/APPLICANT CONTACT INFO</h1>
+               <div class="form-container-row">
+                  <div class="form-group">
+                     <form:label path="toAddresses">To</form:label>
+                     <form:input path="toAddresses" id="toAddresses" cssClass="form-control" placeholder="Your recipient(s) email address(es) separated by semicolon (ex: name@email.com; name2@email.com)." />
+                  </div>
+                  <div class="form-group">
+                     <form:label path="ccAddresses">Cc</form:label>
+                     <form:input path="ccAddresses" id="ccAddresses" cssClass="form-control" placeholder="Who else will this be sent to externally." />
+                  </div>
+               </div>
+               <h1 class="form-container-row-head">EMAIL CONTENT</h1>
+               <div class="form-container-row">
+                  <div class="form-group">
+                     <form:label path="subject">Subject</form:label>
+                     <form:textarea path="subject" cssClass="form-control" id="subject" rows="1" placeholder="Enter Subject" maxlength="200"></form:textarea>
+                  </div>
+                  <div class="form-group">
+                     <p>Attach Documents to Email</p>
+                     <div class="image-upload">
+                        <label for="fileBrowser">
+                           Add Files 
+                           <form:input type="file" multiple="multiple" path="files" id="fileBrowser" />
+                        </label>
+                     </div>
+                     <div id="filesSelected"></div>
+                  </div>
+                  <div class="form-group">
+                     <form:label path="body">Body</form:label>
+                     <form:textarea path="body" cssClass="form-control" id="body" rows="5" placeholder="Input the content of the email." maxlength="5000"></form:textarea>
+                  </div>
+                  <div class="form-group">
+                     <form:label path="linkValidityInDays">Upload Link is valid for</form:label>
+                     <form:select id="linkValidityInDays" cssClass="form-control" path="linkValidityInDays">
+                        <form:option value="" label="Select Days">Select Days</form:option>
+                        <form:option value="2">2 days</form:option>
+                        <form:option value="3">3 days</form:option>
+                        <form:option value="4">4 days</form:option>
+                     </form:select>
+                  </div>
+               </div>
+               <h1 class="form-container-row-head">UPLOAD FOLDER LOCATION&nbsp;&nbsp;&nbsp;<a data-toggle="tooltip" data-placement="right" title="Creates a folder location where documents will be saved after member upload documents."><img src="/request-document/resources/images/blue-round-info-sign.svg" class="info-icon"></a></h1>
+               <div class="form-container-row">
+                  <div class="form-group">
+                     <form:label path="department">Select Department</form:label>
+                     <form:select id="department" cssClass="form-control" path="department" onchange="createFolderLink()">
+                        <c:choose>
+                           <c:when test="${(fn:length(RequestDocumentForm.availableDepartment)) gt '1'}">
+                              <form:option value="" label="Select Department">Department</form:option>
+                           </c:when>
+                        </c:choose>
+                        <c:forEach items="${RequestDocumentForm.availableDepartment}" var="option" varStatus="status">
+                           <form:option value="${option.key}">${option.value}</form:option>
+                        </c:forEach>
+                     </form:select>
+                  </div>
+                  <div>
+                     <div class="form-group folder-group">
+                        <form:label path="folders[0]">Folder 1</form:label>
+                        <form:input path="folders[0]" id="folder1" cssClass="form-control" oninput="createFolderLink()" placeholder="Name 1" onkeydown="return blockSpecialChar(event)" maxlength="20"/>
+                     </div>
+                     <div class="form-group folder-group">
+                        <form:label path="folders[1]">\Subfolder 2</form:label>
+                        <form:input path="folders[1]" id="folder2" cssClass="form-control" oninput="createFolderLink()" placeholder="Name 2" onkeydown="return blockSpecialChar(event)" maxlength="20"/>
+                     </div>
+                     <div class="form-group folder-group">
+                        <form:label path="folders[2]">\Subfolder 3</form:label>
+                        <form:input path="folders[2]" id="folder3" cssClass="form-control" oninput="createFolderLink()" placeholder="Name 3" onkeydown="return blockSpecialChar(event)" maxlength="20"/>
+                     </div>
+                     <div class="form-group folder-group">
+                        <form:label path="folders[3]">\Subfolder 4</form:label>
+                        <form:input path="folders[3]" id="folder4" cssClass="form-control" oninput="createFolderLink()" placeholder="Name 4" onkeydown="return blockSpecialChar(event)" maxlength="20"/>
+                     </div>
+                  </div>
+                  <div class="form-group" id="folderLocation" style="display:none;"><b>Folder Location</b></div>
+                  <div class="form-group">
+                     <input name="folderLocation" id="reviewFolderLocation" readonly />
+                  </div>
+               </div>
+               <h1 class="form-container-row-head">UPLOAD NOTIFICATION&nbsp;&nbsp;&nbsp;<a data-toggle="tooltip" data-placement="right" title="RBFCU email address(es) will be notified after documents have been uploaded."><img src="/request-document/resources/images/blue-round-info-sign.svg" class="info-icon"></a></h1>
+               <div class="form-container-row">
+                  <div class="form-group">
+                     <form:label path="uploadNotificationAddresses">Send Upload Notification To</form:label>
+                     <form:input id="uploadNotificationAddresses" cssClass="form-control" path="uploadNotificationAddresses"
+                        placeholder="RBFCU email address(es) will be notified after documents have been uploaded."
+                        />
+                  </div>
+               </div>
+               <button class="btn btn-primary blue-button" style="margin-left: 25%;" type="submit">Review Email</button>           
+         	</div>
+         </form:form>
+      </div>
+   </tiles:putAttribute>
+</tiles:insertTemplate>
+
+
+
+<%@ include file="includes/preHeaderArea.jspf"%>
+<tiles:insertTemplate template="/WEB-INF/templates/RequestDocumentTemplate.jsp">
+   <tiles:putAttribute name="head" cascade="true">
+      <script type="text/javascript" src="/request-document/resources/js/confirmation.js${asset_id}"></script>
+       <%@page contentType="text/html" import="java.util.*"%>
+        <%
+            pageContext.setAttribute("newLineChar", "\r\n");
+         %>
+   </tiles:putAttribute>
+   <tiles:putAttribute name="content">
+      <%@ include file="includes/timeoutRedirectInclude.jspf" %>
+      <div class="container">
+         <form:form enctype="multipart/form-data" action="/request-document/confirm" modelAttribute="RequestDocumentForm" method="post" id="confirmForm">         
+            <br>
+            <br>
+            <div class="errorMsg">
+               <form:errors path="*" />
+            </div>
+            
+            <h1 class="form-container-row-head">REVIEW EMAIL</h1>
+            <div class="form-container-row">
+               <table class="table" style="font-size: 90%;">
+               <tr>
+                     <th scope="row">To</th>
+                     <td>${RequestDocumentForm.toAddresses}</td>
+                     <form:input path="toAddresses" type='hidden' id='toAddresses' name='toAddresses' value='${RequestDocumentForm.toAddresses}' />
+                  </tr>
+                  <tr>
+                     <th scope="row">Cc</th>
+                     <td>${RequestDocumentForm.ccAddresses}</td>
+                  </tr>
+                  <tr>
+                     <th scope="row">Subject</th>
+                     <td class="wraptext">${RequestDocumentForm.subject}</td>
+                  </tr>
+                  <tr>
+                     <th scope="row">Attached Documents</th>
+                     <c:choose>
+                        <c:when test="${(fn:length(RequestDocumentForm.files)) gt '1' or (fn:length(RequestDocumentForm.files)) eq '1'}">
+                           <td>
+                              <c:forEach var="eachFile" items="${RequestDocumentForm.files}">
+                                 <c:set var="eachFiles" value="${eachFile.originalFilename}" />
+                                 <li>${eachFiles}</li>
+                              </c:forEach>
+                           </td>
+                        </c:when>
+                        <c:otherwise>
+                           <td>none</td>
+                        </c:otherwise>
+                     </c:choose>
+                  </tr>
+                  <tr class="review-content">
+                     <td colspan="2">
+                        <div class="wraptext divwraptext"><%@ include file="template/EmailTemplate.jsp"%></div>
+                     </td>
+                     <form:input path="ccAddresses" type='hidden' value='${RequestDocumentForm.ccAddresses}' />
+                     <form:input path="uploadNotificationAddresses" type='hidden' value='${RequestDocumentForm.uploadNotificationAddresses}' />
+                     <form:input path="linkValidityInDays" type='hidden' value='${RequestDocumentForm.linkValidityInDays}' />
+                     <form:input path="subject" type='hidden' value='${RequestDocumentForm.subject}' />
+                     <form:input path="body" type='hidden' value='${RequestDocumentForm.body}' />
+                     <form:input path="folderLocation" type='hidden' value='${RequestDocumentForm.folderLocation}' />
+                     <form:input path="department" type='hidden' value="${RequestDocumentForm.department}" />
+                     <form:input path="folders[0]" type='hidden' value="${RequestDocumentForm.folders[0]}" />
+                     <form:input path="folders[1]" type='hidden' value="${RequestDocumentForm.folders[1]}" />
+                     <form:input path="folders[2]" type='hidden' value="${RequestDocumentForm.folders[2]}" />
+                     <form:input path="folders[3]" type='hidden' value="${RequestDocumentForm.folders[3]}" />
+                  </tr>
+               </table>
+            </div>
+            <h1 class="form-container-row-head">REVIEW INFO</h1>
+            <div class="form-container-row">
+               <table class="table" >                
+                  <tr>
+                     <th scope="row">Folder Location</th>
+                     <td>${RequestDocumentForm.folderLocation}</td>
+                  </tr>
+                   <tr>
+                     <th scope="row">Send Upload Notification To</th>
+                     <td>${RequestDocumentForm.uploadNotificationAddresses}</td>
+                  </tr>
+               </table>
+            </div>
+         </form:form>
+         <a class="grey-button btn btn-default" href="/request-document?id=back" id="backButton" style="text-decoration: none;">Back</a>
+         <input class="blue-button" type="button" onclick="submitForm();" value="Send Email"/>   
+         <div id="spinnerSection" role="alertdialog" aria-hidden="true" aria-busy="true" aria-live="assertive"></div>
+         <div class="spinner">
+            <div class="vertical-centered-box">
+               <div class="content">
+                  <div class="loader-circle"></div>
+                  <div class="loader-line-mask">
+                     <div class="loader-line"></div>
+                  </div>
+                  <img src="/request-document/resources/images/rbfcu-spain-logo.svg" class="spin-img" alt="rbfcu spinner" role="img">
+               </div>
+            </div>
+         </div>
+      </div>
+   </tiles:putAttribute>
+</tiles:insertTemplate>
+
+
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:cache="http://www.springframework.org/schema/cache"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xsi:schemaLocation="
+	http://www.springframework.org/schema/beans     
+	http://www.springframework.org/schema/beans/spring-beans.xsd
+	http://www.springframework.org/schema/mvc 
+    http://www.springframework.org/schema/mvc/spring-mvc.xsd
+	http://www.springframework.org/schema/context 
+	http://www.springframework.org/schema/context/spring-context.xsd
+	http://www.springframework.org/schema/cache 
+	http://www.springframework.org/schema/cache/spring-cache.xsd
+	http://www.springframework.org/schema/aop
+	http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+	<mvc:annotation-driven/>
+	<context:component-scan base-package="org.rbfcu.documentupload.admin" />
+	
+	<bean
+		class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+		<property name="prefix" value="/WEB-INF/views/" />
+		<property name="suffix" value=".jsp" />
+	</bean>
+	
+		
+	<!-- disable caching -->
+	<mvc:interceptors>
+		<mvc:interceptor>
+			<mvc:mapping path="/**" />
+			<bean class="org.springframework.web.servlet.mvc.WebContentInterceptor">
+				<property name="cacheSeconds" value="0" />
+				<property name="useCacheControlHeader" value="true" />
+				<property name="useCacheControlNoStore" value="true" />
+			</bean>
+		</mvc:interceptor>
+		<mvc:interceptor>
+			<mvc:mapping path="/**" />
+			<mvc:exclude-mapping path="/error/**"/>
+			<bean class="org.rbfcu.documentupload.admin.security.AuthorizationHandler" />
+		</mvc:interceptor>
+	</mvc:interceptors>
+	
+	<context:property-placeholder location="classpath*:application.config"/>
+
+	<mvc:resources mapping="/resources/**" location="/resources/" />
+		
+	<bean id="messageSource" class="org.springframework.context.support.ResourceBundleMessageSource">
+	    <property name="basename" value="messages"/>
+	</bean>
+	
+	<bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver" />
+	
+</beans>
+
+
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app version="2.5" xmlns="http://java.sun.com/xml/ns/javaee"
+		xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
+		metadata-complete="true">
+   <display-name>request-document</display-name>
+   
+	<listener>
+		<listener-class>org.apache.tiles.extras.complete.CompleteAutoloadTilesListener</listener-class>
+	</listener>
+	
+    <servlet>
+        <servlet-name>dispatch</servlet-name>
+        <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+    
+    <servlet>
+		<servlet-name>ReloadConfigServlet</servlet-name>
+		<servlet-class>org.rbfcu.service.common.ServiceReloadConfigServlet</servlet-class>
+		<load-on-startup>1</load-on-startup>
+	</servlet>
+   
+    <servlet-mapping>
+        <servlet-name>dispatch</servlet-name>
+        <url-pattern>/</url-pattern>
+    </servlet-mapping>
+    
+    <servlet-mapping>
+		<servlet-name>ReloadConfigServlet</servlet-name>
+		<url-pattern>/reloadConfig</url-pattern>
+	</servlet-mapping>
+	
+		<security-constraint>
+		<web-resource-collection>
+			<!-- no constraint for these URIs so that explicit auth can be used (instead of needing browser for SSO) and config can be reloaded-->
+			<web-resource-name>Unauthenticated URLs</web-resource-name>
+			<url-pattern>/authenticate</url-pattern>
+			<url-pattern>/reloadConfig</url-pattern>
+		</web-resource-collection>
+	</security-constraint>
+	
+	<security-constraint>
+		<web-resource-collection>
+			<web-resource-name>Spring MVC (dispatch)</web-resource-name>
+			<url-pattern>/*</url-pattern>
+		</web-resource-collection>
+		<auth-constraint>
+			<description>dispatch Security:+:All Authenticated users for dispatch.</description>
+			<role-name>All Role</role-name><!-- same name as what will be deployed in the ear (see application.xml) -->
+		</auth-constraint>
+	</security-constraint>
+    
+	<error-page>
+		<error-code>404</error-code>
+		<location>/WEB-INF/views/Message.jsp</location>
+	</error-page>
+	<error-page>
+		<error-code>500</error-code>
+		<location>/WEB-INF/views/Message.jsp</location>
+	</error-page>
+   
+</web-app>
+
+
+
+
+
+
+
+
+
+
+
+
+<%@ include file="../includes/preHeaderArea.jspf"%>
+<html>
+   <head>
+      <title>Upload Document</title>
+      <meta http-equiv="Content-Type"content="text/html;charset=iso-8859-1">
+      <style> p { font-size: 18px; color: #333333;line-height: 24px; } </style>
+   </head>
+   <body bgcolor="#FFFFFF">
+      <table width="100%" cellpadding="0" cellspacing="0">
+         <tr>
+            <td valign="top" bgcolor="#FFFFFF">
+               <div>
+                  <table cellpadding="0" cellspacing="0">
+                     <tr align="left" valign="middle" bgcolor="#1C5495" >
+                        <td>
+                           <table cellspacing="0" style="width:100%;">
+                              <tr>
+                                 <td>
+                                    <div><img src="https://dev.rbfcu.org/images/default-source/nbo/others/rbfcu-blue-emailalerts.png" alt="RBFCU logo" align="left"></div>
+                                 </td>
+                              </tr>
+                           </table>
+                        </td>
+                     </tr>
+                     <tr align="left" valign="middle">
+                        <td valign="top">
+                           <br> <font color="#333333" size="5.5" face="Arial, Helvetica, sans-serif" style="color:#1C5495"><strong>Document Upload Request</strong></font><br><br>
+                           <p style="margin:0"><font color="#333333" size="4" face="Arial, Helvetica, sans-serif">${fn:replace(RequestDocumentForm.body, newLineChar, '<br>')}</font></p>
+                           <br> 
+                        </td>
+                     </tr>
+                     <tr>
+                        <td>
+                           <table cellspacing="0" >
+                              <tr align="left" valign="middle">
+                                 <td>
+                                    <p><font color="#333333" size="4" face="Arial, Helvetica, sans-serif">Please <a>click here</a> to upload the documents online.</font> </p>
+                                    <p><font color="#333333" size="4" face="Arial, Helvetica, sans-serif">Please do not respond directly to this message.</font></p>
+                                    <p><font color="#333333" size="4" face="Arial, Helvetica, sans-serif">For more information about other products and services, contact the Member Service Center at <a href>1-800-580-3300</a> or <a href="mailto:memberservices@rbfcu.org">memberservices@rbfcu.org</a>.</font></p>
+                                    <p><font color="#333333" size="4" face="Arial, Helvetica, sans-serif">For your protection, please do not provide any personal account information through open email channels. To communicate specific account information with us, log in to your online banking account at rbfcu.org and send us a secure message.</font></p>
+                                    <p><font color='red' size="4" face="Arial, Helvetica, sans-serif">Note: Please do not upload any password protected documents.</font></p>
+                                 </td>
+                              </tr>
+                           </table>
+                        </td>
+                     </tr>
+                  </table>
+                  <br>
+               </div>
+            </td>
+         </tr>
+      </table>
+   </body>
+</html>
+
+
+
+
+
+
+
+
+<%@ taglib uri="http://tiles.apache.org/tags-tiles" prefix="tiles"%>
+<%@ taglib uri="http://www.springframework.org/tags/form" prefix="form"%>
+<%@ taglib uri="http://www.springframework.org/tags" prefix="spring"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
+
+<%@ page import="org.apache.tiles.Attribute" %>
+
+<c:set var="asset_id" value="?upd=20180303" scope="page"/>
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<%@ include file="../views/includes/preHeaderArea.jspf"%>
+<html lang="en">
+   <head>
+      <meta charset="utf-8">
+      <meta http-equiv="X-UA-Compatible" content="IE=edge">
+      <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=0">
+      <title>
+         <tiles:getAsString name="title" ignore="true" defaultValue="Request Document" />
+      </title>
+      <script type="text/javascript" src="/request-document/resources/js/jquery-1.12.4.js"></script>  
+      <script type="text/javascript" src="/request-document/resources/js/jquery-ui.js"></script>
+      <script type="text/javascript" src="/request-document/resources/js/store.min.js"></script>
+      <link href="/request-document/resources/css/jquery-ui.css" rel="stylesheet">
+      <script type="text/javascript" src="/request-document/resources/js/bootstrap.js${asset_id}"></script>
+      <link href="/request-document/resources/css/bootstrap.css${asset_id}" rel="stylesheet">
+      <link href="/request-document/resources/css/features.css${asset_id}" rel="stylesheet">
+      <link rel="icon" type="image/png" href="/request-document/resources/images/favicon-32x32.png" sizes="32x32">
+      <link rel="icon" type="image/png" href="/request-document/resources/images/favicon-16x16.png" sizes="16x16">
+      <link rel="manifest" href="/resources/manifest.json">
+      <tiles:getAsString name="head" ignore="true" />
+   </head>
+   <body>
+      <div>
+         <div class="rb-logo">
+            <img src="/request-document/resources/images/thin-top-bar.gif" class="thin-top-cntr">
+            <a href="https://www.rbfcu.org/" ><img src="/request-document/resources/images/rbfcu-logo.svg"></a>
+         </div>
+         <div class="lowerbar-project-name">
+            <h4><a href="/request-document/" style="text-decoration: none;">Request Document</a></h4>
+         </div>
+         <tiles:getAsString name="content" />
+      </div>
+   </body>
+</html>
+
+
+application.config
+doc.upload.access.url.root=https://in-uat.rbfcu.org
+doc.upload.access.url.endpoint=/DocView/sf?id=%s
+doc.upload.max.size.in.megabytes=25
+business.solutions.ad.group=CN=GL Request Document - Business Solutions,CN=GL Web Team
+
+host.name=https://alpha.rbfcu.org
+
+email.template= <html><head><title>Upload Document</title><meta http-equiv="Content-Type"content="text/html;charset=iso-8859-1"><style> p { font-size: 18px; color: #333333;line-height: 24px; } </style></head><body bgcolor="#FFFFFF"><table width="100%" cellpadding="0" cellspacing="0"><tr><td valign="top" bgcolor="#FFFFFF"><div><table cellpadding="0" cellspacing="0"><tr align="left" valign="middle" bgcolor="#1C5495" ><td><table cellspacing="0" style="width:100%;"><tr><td><div><img src="https://dev.rbfcu.org/images/default-source/nbo/others/rbfcu-blue-emailalerts.png" alt="RBFCU logo" align="left"></div></td></tr></table></td></tr><tr align="left" valign="middle"><td valign="top"><br> <font color="#333333" size="5.5" face="Arial, Helvetica, sans-serif" style="color:#1C5495"><strong>Document Upload Request</strong></font><br><br><p style="margin:0"><font color="#333333" size="4" face="Arial, Helvetica, sans-serif">[body]</font></p><br></td></tr><tr><td><table cellspacing="0" ><tr align="left" valign="middle"><td><p><font color="#333333" size="4" face="Arial, Helvetica, sans-serif">Please <a href="[uploadLink]">click here</a> to upload the documents online.<br><br>This upload link is valid until [date]</font> </p><p><font color="#333333" size="4" face="Arial, Helvetica, sans-serif">Please do not respond directly to this message.</font></p><p><font color="#333333" size="4" face="Arial, Helvetica, sans-serif">For more information about other products and services, contact the Member Service Center at <a href>1-800-580-3300</a> or <a href="mailto:memberservices@rbfcu.org">memberservices@rbfcu.org</a>.</font></p><p><font color="#333333" size="4" face="Arial, Helvetica, sans-serif">For your protection, please do not provide any personal account information through open email channels. To communicate specific account information with us, log in to your online banking account at rbfcu.org and send us a secure message.</font></p><p><font color='red' size="4" face="Arial, Helvetica, sans-serif">Note: Please do not upload any password protected documents.</font></p></td></tr></table></td></tr><tr><td><table width="100%"><tr><td><hr style="display:block;"></td></tr></table><table cellspacing="0"><tr align="left" valign="middle"><td><div><adress><font color="#333333" size="4" face="Arial, Helvetica, sans-serif">RBFCU<br>Attn: Member Service Center <br>P.O. Box 2097<br>Universal City, TX 78148-2097<br></font><br> <font color="#333333" size="4" face="Arial, Helvetica, sans-serif"> </font><font color="#097EE7" size="4" face="Arial, Helvetica, sans-serif"> <a color="#333333" href="https://www.rbfcu.org/privacy-policy">View our Privacy Policy</a></font>.</adress></div></td></tr></table></td></tr></table><br></div></td></tr></table></body></html>
+
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+   <modelVersion>4.0.0</modelVersion>
+   <groupId>org.rbfcu</groupId>
+   <artifactId>RequestDocument</artifactId>
+   <version>0.0.1-SNAPSHOT</version>
+   <packaging>war</packaging>
+   <name>RequestDocument</name>
+   <url>http://maven.apache.org</url>
+   <properties>
+      <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+   </properties>
+   <build>
+      <plugins>
+         <plugin>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <configuration>
+               <source>1.8</source>
+               <target>1.8</target>
+            </configuration>
+         </plugin>
+      </plugins>
+   </build>
+   <dependencies>
+      <dependency>
+         <groupId>junit</groupId>
+         <artifactId>junit</artifactId>
+         <version>3.8.1</version>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
+         <groupId>javax.servlet</groupId>
+         <artifactId>servlet-api</artifactId>
+         <version>2.5</version>
+         <scope>provided</scope>
+      </dependency>
+      <!-- Spring dependencies -->
+      <dependency>
+         <groupId>org.springframework</groupId>
+         <artifactId>spring-core</artifactId>
+         <version>4.3.3.RELEASE</version>
+      </dependency>
+      <dependency>
+         <groupId>org.springframework</groupId>
+         <artifactId>spring-web</artifactId>
+         <version>4.3.3.RELEASE</version>
+      </dependency>
+      <dependency>
+         <groupId>org.springframework</groupId>
+         <artifactId>spring-webmvc</artifactId>
+         <version>4.3.3.RELEASE</version>
+         <exclusions>
+            <exclusion>
+               <groupId>commons-logging</groupId>
+               <artifactId>commons-logging</artifactId>
+            </exclusion>
+         </exclusions>
+      </dependency>
+      <dependency>
+         <groupId>org.rbfcu.master</groupId>
+         <artifactId>configuration-util</artifactId>
+         <version>0.9.0-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+         <groupId>org.rbfcu.master</groupId>
+         <artifactId>common-lib</artifactId>
+         <version>0.14.0-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+         <groupId>com.googlecode.json-simple</groupId>
+         <artifactId>json-simple</artifactId>
+         <version>1.1</version>
+      </dependency>
+      <dependency>
+         <groupId>com.ibm.websphere.j2ee</groupId>
+         <artifactId>j2ee</artifactId>
+         <version>8.5.5-FixPack-01</version>
+         <scope>provided</scope>
+      </dependency>
+      <dependency>
+         <groupId>javax.servlet</groupId>
+         <artifactId>jstl</artifactId>
+         <version>1.2</version>
+      </dependency>
+      <dependency>
+         <groupId>org.apache.commons</groupId>
+         <artifactId>commons-lang3</artifactId>
+         <version>3.5</version>
+      </dependency>
+      <dependency>
+         <groupId>org.json</groupId>
+         <artifactId>json</artifactId>
+         <version>20090211</version>
+      </dependency>
+      <dependency>
+         <groupId>org.apache.tiles</groupId>
+         <artifactId>tiles-extras</artifactId>
+         <version>3.0.1</version>
+         <exclusions>
+            <exclusion>
+               <!-- pulled from CommonLib instead -->
+               <groupId>org.slf4j</groupId>
+               <artifactId>jcl-over-slf4j</artifactId>
+            </exclusion>
+            <exclusion>
+               <!-- pulled from CommonLib instead -->
+               <groupId>org.springframework</groupId>
+               <artifactId>spring-core</artifactId>
+            </exclusion>
+         </exclusions>
+      </dependency>
+      <dependency>
+         <groupId>org.rbfcu.service-updates</groupId>
+         <artifactId>documentservice</artifactId>
+         <version>0.1.82-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+		<groupId>org.rbfcu.rbservice.master</groupId>
+		<artifactId>Service</artifactId>
+		<version>61.0.0-SNAPSHOT</version>
+	</dependency>
+      <!-- <dependency>
+			<groupId>org.rbfcu.notification.attachment-email</groupId>
+			<artifactId>notification</artifactId>
+			<version>0.0.0.0-SNAPSHOT</version>
+		</dependency> -->
+      <dependency>
+         <groupId>org.rbfcu.notification.real-time-email</groupId>
+         <artifactId>notification</artifactId>
+         <version>1.13.23-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+         <groupId>commons-fileupload</groupId>
+         <artifactId>commons-fileupload</artifactId>
+         <version>1.3.3</version>
+      </dependency>
+      <dependency>
+         <groupId>org.apache.commons</groupId>
+         <artifactId>commons-lang3</artifactId>
+         <version>3.5</version>
+      </dependency>
+   </dependencies>
+</project>
+
+
+
+
+package org.rbfcu.documentupload.admin.dto;
+
+public enum DocumentType {
+
+	WORD_2003("doc", "application/msword"),
+	WORD("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+	PDF("pdf", "application/pdf"),
+	IMAGE_PNG("png", "image/png"),
+	IMAGE_JPEG("jpeg", "image/jpeg");
+
+	private String fileExtension;
+	private String contentType;
+
+	private DocumentType(String fileExtension, String contentType) {
+		this.fileExtension = fileExtension;
+		this.contentType = contentType;
+	}
+
+	public String getFileExtension() {
+		return fileExtension;
+	}
+
+	public void setFileExtension(String fileExtension) {
+		this.fileExtension = fileExtension;
+	}
+
+	public String getContentType() {
+		return contentType;
+	}
+
+	public void setContentType(String contentType) {
+		this.contentType = contentType;
+	}
+}
+
+package org.rbfcu.documentupload.admin.validator;
+
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.rbfcu.config.BaseConfig;
+import org.rbfcu.documentupload.admin.dto.DocumentType;
+import org.rbfcu.documentupload.admin.dto.RequestDocumentForm;
+import org.springframework.stereotype.Component;
+import org.springframework.validation.Errors;
+import org.springframework.validation.ValidationUtils;
+import org.springframework.validation.Validator;
+import org.springframework.web.multipart.MultipartFile;
+
+@Component
+public class RequestDocumentValidator implements Validator {
+	private static final String EMAIL_REGX = "^[_A-Za-z0-9-]+(\\.[_A-Za-z0-9-]+)*@[A-Za-z0-9]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
+	private static final String EMAIL_REGX_RBFCU = "^[_A-Za-z0-9-]+(\\.[_A-Za-z0-9-]+)*@rbfcu.org$";
+	private static final String FAILOVER_FILE_SIZE_MESSAGE = "Please provide a file of smaller size.";
+
+	public boolean supports(Class<?> clazz) {
+		return RequestDocumentForm.class.isAssignableFrom(clazz);
+	}
+
+	public void validate(Object target, Errors errors) {
+		RequestDocumentForm form = (RequestDocumentForm) target;
+
+		validateToAddress(form, errors);
+		validateCcAddress(form, errors);
+		validateNotificationAddress(form, errors);
+		validateUploadLinkValidTill(form, errors);
+		validateSubject(form, errors);
+		validateRequiredDocuments(form, errors);
+		validateDepartment(form, errors);
+		validateFolder(form, errors);
+		validateMissingSubfolder(form, errors);
+		validateFileSizeAndType(form, errors);
+	}
+
+	public void validateFileSizeAndType(RequestDocumentForm form, Errors errors) {
+		if (form.getFiles() != null && !form.getFiles().isEmpty()) {
+			validateFileSize(form, errors);
+			validateFileType(form, errors);
+		}
+	}
+
+	private void validateToAddress(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isBlank(form.getToAddresses())) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "toAddresses", "error.to.address.missing");
+		} else {
+			if (StringUtils.isNotEmpty(form.getToAddresses())) {
+				String[] strArray = form.getToAddresses().split(";");
+				for (String eachArry : strArray) {
+					Boolean isValid = eachArry.trim().matches(EMAIL_REGX);
+					if (!isValid) {
+						errors.rejectValue("toAddresses", "error.to.address.email.format");
+					}
+				}
+			}
+		}
+	}
+
+	private void validateCcAddress(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isBlank(form.getCcAddresses())) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "ccAddresses", "error.cc.address.missing");
+		} else {
+			if (StringUtils.isNotEmpty(form.getCcAddresses())) {
+				String[] strArray = form.getCcAddresses().split(";");
+				for (String eachArry : strArray) {
+					Boolean isValid = eachArry.trim().matches(EMAIL_REGX);
+					if (!isValid) {
+						errors.rejectValue("ccAddresses", "error.cc.address.email.format");
+					}
+				}
+			}
+		}
+	}
+
+	private void validateNotificationAddress(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isBlank(form.getUploadNotificationAddresses())) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "uploadNotificationAddresses", "error.notification.email.missing");
+		} else {
+			if (StringUtils.isNotEmpty(form.getUploadNotificationAddresses())) {
+				String[] strArray = form.getUploadNotificationAddresses().split(";");
+				for (String eachArry : strArray) {
+					Boolean isValid = eachArry.trim().matches(EMAIL_REGX_RBFCU);
+					if (!isValid) {
+						errors.rejectValue("uploadNotificationAddresses", "error.notification.email.domain");
+					}
+				}
+			}
+		}
+	}
+
+	private void validateUploadLinkValidTill(RequestDocumentForm form, Errors errors) {
+		if (form.getLinkValidityInDays() == null) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "linkValidityInDays", "error.linkValidityInDays.missing");
+		}
+	}
+
+	private void validateSubject(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isBlank(form.getSubject())) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "subject", "error.subject.missing");
+		}
+	}
+
+	private void validateRequiredDocuments(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isBlank(form.getBody())) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "body", "error.required.documents.missing");
+		}
+	}
+
+	private void validateDepartment(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isBlank(form.getDepartment())) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "department", "error.department.missing");
+		}
+	}
+
+	private void validateFolder(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isBlank(form.getFolders()[0])) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "folders[0]", "error.folder1.missing");
+		}
+	}
+
+	private void validateMissingSubfolder(RequestDocumentForm form, Errors errors) {
+		if (StringUtils.isNotBlank(form.getFolders()[3]) && StringUtils.isBlank(form.getFolders()[2])
+				&& StringUtils.isBlank(form.getFolders()[1])) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "folders[1]", "error.skipping.subfolder2and3");
+		} else if (StringUtils.isNotBlank(form.getFolders()[2]) && StringUtils.isBlank(form.getFolders()[1])) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "folders[1]", "error.skipping.subfolder2");
+		} else if (StringUtils.isNotBlank(form.getFolders()[3]) && StringUtils.isBlank(form.getFolders()[2])) {
+			ValidationUtils.rejectIfEmptyOrWhitespace(errors, "folders[2]", "error.skipping.subfolder3");
+		}
+	}
+
+	private Errors validateFileSize(RequestDocumentForm form, Errors errors) {
+		long maxSizeInMegaBytes = BaseConfig.getInstance().getIntValue("doc.upload.max.size.in.megabytes");
+
+		long maxSizeInBytes = maxSizeInMegaBytes * 1024 * 1024;
+
+		String maxAllowedSize = maxSizeInMegaBytes + " MB";
+		for (MultipartFile documentToUpload : form.getFiles()) {
+
+			if (documentToUpload.getSize() > maxSizeInBytes) {
+				errors.rejectValue("files", "error.file.size.limit", new Object[] { maxAllowedSize }, FAILOVER_FILE_SIZE_MESSAGE);
+				break;
+			}
+
+		}
+		return errors;
+	}
+
+	private Errors validateFileType(RequestDocumentForm form, Errors errors) {
+		for (MultipartFile documentToUpload : form.getFiles()) {
+			if (isNotAnAllowedType(documentToUpload.getContentType())) {
+				errors.rejectValue("files", "error.file.permitted.type");
+				break;
+			}
+		}
+
+		return errors;
+	}
+
+	private boolean isNotAnAllowedType(String contentType) {
+		return !isAnAllowedType(contentType);
+	}
+
+	private boolean isAnAllowedType(String contentType) {
+		boolean isAllowed = false;
+		DocumentType[] allowedTypes = DocumentType.values();
+
+		if (ArrayUtils.isNotEmpty(allowedTypes)) {
+			for (DocumentType allowedType : allowedTypes) {
+				if (StringUtils.equalsIgnoreCase(contentType, allowedType.getContentType())) {
+					isAllowed = true;
+					break;
+				}
+			}
+		}
+		return isAllowed;
+	}
+
+}
+
+
+message.properties
+
+error.to.address.missing= Provide an email address in the 'To' field.
+error.to.address.email.format= Enter a correct email format for TO address separated by semicolon (ex: name@email.com; name2@email.com)
+error.cc.address.missing= Provide an email address in the 'Cc' field.
+error.cc.address.email.format= Enter a correct email format for CC address separated by semicolon (ex: name@email.com; name2@email.com)
+error.notification.email.missing= Provide notifier(s) email address.
+error.notification.email.domain= Enter a correct email domain (email@rbfcu.org) for notification email. Separate with ; for list of email addresses.
+error.linkValidityInDays.missing = Please select upload link valid days.
+error.subject.missing= Provide the title of this email in the 'Subject' field.
+error.required.documents.missing= Cannot leave body blank.
+error.department.missing= Please select Department.
+error.folder1.missing= Cannot leave folder 1 blank.
+error.skipping.subfolder2and3= You provided sub-folder 4 but skipped sub-folder 2 and 3.
+error.skipping.subfolder2= You skipped sub-folder 2.
+error.skipping.subfolder3= You skipped sub-folder 3.
+email.send.success.msg= Email was successfully sent.
+display.error.msg= Error occurred while sending email.
+error.file.permitted.type=Please upload the file in one of these formats: .doc, .docx, .pdf, .jpg, .png.
+error.file.size.limit=File size must be less than {0}
+
+
+dispatch-servlet.xml
+
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:cache="http://www.springframework.org/schema/cache"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xsi:schemaLocation="
+	http://www.springframework.org/schema/beans     
+	http://www.springframework.org/schema/beans/spring-beans.xsd
+	http://www.springframework.org/schema/mvc 
+    http://www.springframework.org/schema/mvc/spring-mvc.xsd
+	http://www.springframework.org/schema/context 
+	http://www.springframework.org/schema/context/spring-context.xsd
+	http://www.springframework.org/schema/cache 
+	http://www.springframework.org/schema/cache/spring-cache.xsd
+	http://www.springframework.org/schema/aop
+	http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+	<mvc:annotation-driven/>
+	<context:component-scan base-package="org.rbfcu.documentupload.admin" />
+	
+	<bean
+		class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+		<property name="prefix" value="/WEB-INF/views/" />
+		<property name="suffix" value=".jsp" />
+	</bean>
+	
+		
+	<!-- disable caching -->
+	<mvc:interceptors>
+		<mvc:interceptor>
+			<mvc:mapping path="/**" />
+			<bean class="org.springframework.web.servlet.mvc.WebContentInterceptor">
+				<property name="cacheSeconds" value="0" />
+				<property name="useCacheControlHeader" value="true" />
+				<property name="useCacheControlNoStore" value="true" />
+			</bean>
+		</mvc:interceptor>
+		<mvc:interceptor>
+			<mvc:mapping path="/**" />
+			<mvc:exclude-mapping path="/error/**"/>
+			<bean class="org.rbfcu.documentupload.admin.security.AuthorizationHandler" />
+		</mvc:interceptor>
+	</mvc:interceptors>
+	
+	<context:property-placeholder location="classpath*:application.config"/>
+
+	<mvc:resources mapping="/resources/**" location="/resources/" />
+		
+	<bean id="messageSource" class="org.springframework.context.support.ResourceBundleMessageSource">
+	    <property name="basename" value="messages"/>
+	</bean>
+	
+	<bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver" />
+	
+</beans>
+
+
+
+web.xml
+
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app version="2.5" xmlns="http://java.sun.com/xml/ns/javaee"
+		xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
+		metadata-complete="true">
+   <display-name>request-document</display-name>
+   
+	<listener>
+		<listener-class>org.apache.tiles.extras.complete.CompleteAutoloadTilesListener</listener-class>
+	</listener>
+	
+    <servlet>
+        <servlet-name>dispatch</servlet-name>
+        <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+    
+    <servlet>
+		<servlet-name>ReloadConfigServlet</servlet-name>
+		<servlet-class>org.rbfcu.service.common.ServiceReloadConfigServlet</servlet-class>
+		<load-on-startup>1</load-on-startup>
+	</servlet>
+   
+    <servlet-mapping>
+        <servlet-name>dispatch</servlet-name>
+        <url-pattern>/</url-pattern>
+    </servlet-mapping>
+    
+    <servlet-mapping>
+		<servlet-name>ReloadConfigServlet</servlet-name>
+		<url-pattern>/reloadConfig</url-pattern>
+	</servlet-mapping>
+	
+		<security-constraint>
+		<web-resource-collection>
+			<!-- no constraint for these URIs so that explicit auth can be used (instead of needing browser for SSO) and config can be reloaded-->
+			<web-resource-name>Unauthenticated URLs</web-resource-name>
+			<url-pattern>/authenticate</url-pattern>
+			<url-pattern>/reloadConfig</url-pattern>
+		</web-resource-collection>
+	</security-constraint>
+	
+	<security-constraint>
+		<web-resource-collection>
+			<web-resource-name>Spring MVC (dispatch)</web-resource-name>
+			<url-pattern>/*</url-pattern>
+		</web-resource-collection>
+		<auth-constraint>
+			<description>dispatch Security:+:All Authenticated users for dispatch.</description>
+			<role-name>All Role</role-name><!-- same name as what will be deployed in the ear (see application.xml) -->
+		</auth-constraint>
+	</security-constraint>
+    
+	<error-page>
+		<error-code>404</error-code>
+		<location>/WEB-INF/views/Message.jsp</location>
+	</error-page>
+	<error-page>
+		<error-code>500</error-code>
+		<location>/WEB-INF/views/Message.jsp</location>
+	</error-page>
+   
+</web-app>
+
+
+
+
+
