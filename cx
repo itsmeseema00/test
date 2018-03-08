@@ -1,0 +1,117 @@
+
+package org.rbfcu.documentupload.service;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.commons.lang.StringUtils;
+import org.rbfcu.config.BaseConfig;
+import org.rbfcu.config.EnvConfig;
+import org.rbfcu.document.business.Document;
+import org.rbfcu.documentupload.dto.UploadEvent;
+import org.rbfcu.email.client.EmailMessage;
+import org.rbfcu.service.email.EmailSender;
+import org.rbfcu.service.email.config.Configuration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class NotificationEmailService {
+
+	private static final Logger LOG = LoggerFactory.getLogger(NotificationEmailService.class);
+	private static final String TEMPLATE_LINK = "<a href='%s' target='_blank'>%s</a>";
+
+	public void sendNotificationEmailToLending(UploadEvent notification) {
+		EmailMessage email = buildEmail(notification);
+
+		try {
+			EmailSender.getInstance().sendEmail(email);
+
+		} catch (Exception e) {
+			LOG.error("Error occured sending email notification to notifier", e);
+		}
+	}
+
+	private EmailMessage buildEmail(UploadEvent notification) {
+		EmailMessage email = new EmailMessage();
+
+		email.setFromAddress(Configuration.getValue("email.from"));
+		email.setFromName(Configuration.getValue("email.from.name"));
+		email.setSubject("Document upload for Department:" + notification.getDepartment());
+		email.setToAddresses(getNotifierEmailList(notification.getNotifier()));
+
+		StringBuilder body = new StringBuilder();
+
+		String urlRoot = BaseConfig.getInstance().getValue("doc.upload.access.url.root");
+		String urlEndpoint = BaseConfig.getInstance().getValue("doc.upload.access.url.endpoint");
+
+		if (!EnvConfig.isPrd()) {
+			email.setSubject("TEST document upload");
+			body.append("<p> This is an email from the staging environment and is sent for testing purposes. </p>");
+			body.append("<p> Member has uploaded documents.</p>");
+			body.append("<p> ------------------------------------------------------------------------------- </p>");
+		}
+
+		body.append("<p>");
+
+		StringBuilder uploadDetails = new StringBuilder();
+		uploadDetails.append("Quick view links:");
+
+		int failedUploads = 0;
+		int successfulUploads = 0;
+		String physicalFolderLocation = null;
+
+		String webUrl = null;
+
+		for (Document document : notification.getDocuments()) {
+			if (document == null || StringUtils.isBlank(document.getPhysicalShareablePath())) {
+				failedUploads++;
+				continue;
+			}
+
+			successfulUploads++;
+			physicalFolderLocation = document.getPhysicalFolderPath();
+
+			webUrl = String.format(urlRoot + urlEndpoint, document.getDocumentId());
+
+			String webLink = String.format(TEMPLATE_LINK, webUrl, webUrl);
+			uploadDetails.append("<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + document.getName() + "  " + webLink);
+		}
+
+		if (successfulUploads == 0) {
+			uploadDetails.append("<br/> Error occured uploading " + failedUploads + " document(s).");
+
+		} else {
+
+			uploadDetails.append("<br/><br/> Folder location: " + String.format(TEMPLATE_LINK, physicalFolderLocation, physicalFolderLocation));
+
+			if (failedUploads != 0) {
+				uploadDetails.append("<br/><br/> Upload was partial successful. " + failedUploads + " document(s) failed to upload.");
+			}
+		}
+
+		body.append(uploadDetails);
+		body.append("</p>");
+
+		email.setBody(body.toString());
+		LOG.info("Email body: {}", body);
+
+		return email;
+	}
+
+	private List<String> getNotifierEmailList(String notifierEmail) {
+		List<String> notifierEmailList = new ArrayList<String>();
+		if (StringUtils.isNotEmpty(notifierEmail)) {
+			String[] strArry = notifierEmail.split(";");
+			for (String eachEmail : strArry) {
+				notifierEmailList.add(eachEmail);
+			}
+		}
+		return notifierEmailList;
+	}
+
+}
+
+
+
+
+
