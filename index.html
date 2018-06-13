@@ -1,0 +1,101 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>    
+    <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1" />
+
+    <title>Branch Mileage Calculator</title>
+         
+	<link href="css/default.css" rel="stylesheet" type="text/css" />
+	<script type="text/javascript" src="js/jquery.js"></script>
+	<script type="text/javascript" src="js/mileage.js"></script>
+
+</head>
+
+<body>
+	<div id="container">
+		<h1>
+			<img src="img/car.gif" alt="Icon of a car" />
+			<span class="header">Branch Mileage Calculator</span>
+		</h1>
+	
+		<p>Select two branches to calculate the mileage between them.</p>
+	
+		<ul>
+			<li>To add multiple trip segments, select the next location in the <strong>To</strong> 
+				field.  Your mileage for each trip segment, along with the cumulative total, will 
+				display below.
+			</li>
+			<li>To start over, click the <strong>Clear</strong> button.
+			</li>
+		</ul>
+		
+		<table>
+			<tr>
+				<td>
+					<table>
+						<tr>
+							<td>Start:
+								<select id="startBranch" disabled="disabled" onchange="javascript:doInitialize()">
+									<option value="-1" selected="selected">Select Starting Location</option>
+								</select>						
+							</td>
+							<td>To:
+								<select id="nextBranch" disabled="disabled" onchange="javascript:doGetMileage()">
+									<option value="-1" selected="selected">Select Next Location</option>
+								</select>
+							</td>
+							<td>
+								<input type="reset" onclick="javascript:doClear()" value="Clear" />
+							</td>
+						</tr>
+					</table>
+				</td>
+			</tr>
+			<tr>
+				<td>
+					<table>
+						<tr>
+							<td>
+								<textarea class="text1" id="outputText" rows="12" cols="55"></textarea>
+							</td>
+						</tr>
+					</table>
+				</td>
+			</tr>
+			<tr>
+				<td>
+					<table style="float:right">
+						<tr>
+							<td>Total Miles:</td>
+							<td>
+								<input id="txtTotalMiles" size="7" value="0" type="text" />
+							</td>
+						</tr>
+						<tr>
+							<td>Rate* ($/mi):</td>
+							<td>
+								<input id="txtRateReimburse" size="7" type="text" disabled="disabled" />
+							</td>
+						</tr>
+						<tr>
+							<td>Total Reimbursement:</td>
+							<td>
+								<input id="txtTotalReimburse" size="7" value="0" type="text" />
+							</td>
+						</tr>
+					</table>
+				</td>
+			</tr>
+		</table>		
+		
+		<p class="disclaimer">*As of 01-01-17 the reimbursement rate is $<span class="displayRate">--</span>. The previous reimbursement rate was $0.54/mile as of 01-01-16.</p>
+
+		<script type="text/javascript">
+		    Main();
+		</script>
+			
+	</div>
+</body>  
+      
+</html>

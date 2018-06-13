@@ -1,0 +1,1330 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Expense Report</title>
+
+<link type="text/css" href="http://192.168.51.74/obformsresource/library/v1.0/css/themeRollerCSS/OnBaseTheme/jquery-ui-1.7.2.custom.css" rel="Stylesheet" />
+
+<script type="text/javascript" src="http://192.168.51.74/obformsresource/library/v1.0/jquery/jquery.min.js"></script>
+
+<script type="text/javascript" src="http://192.168.51.74/obformsresource/library/v1.0/jquery/jquery-ui.min.js"></script>
+
+<link type="text/css" href="http://192.168.51.74/obformsresource/library/v1.0/css/OnBaseStandard-Styles.css" rel="Stylesheet"/>
+
+<script type="text/javascript" src="http://192.168.51.74/obformsresource/library/v1.0/jquery/OnBaseStandardTemplate.js"></script>
+
+<style type="text/css">
+
+@import url('obformsresource/library/v1.0/css/themeRollerCSS/OnBaseTheme/jquery-ui-1.7.2.custom.css');
+@import url('obformsresource/library/v1.0/css/OnBaseStandard-Styles.css');
+
+table.myclass1 {
+	border-width: 1px;
+	border-spacing: 2px;
+	border-style: outset;
+	border-color: gray;
+	background-color: white;
+}
+
+table.myclass2 {
+	border-width: 1px;
+	border-spacing: 2px;
+	border-style: outset;
+	border-color: gray;
+	background-color: white;
+}
+
+#body3 { display: none }
+
+</style>
+
+    <script language="javascript">
+
+	//KW NAME							DEV KW #	PROD KW #
+	//AP - Expense Report Number			OBKey__322	OBKey__288
+	//AP - OnBase User Name					OBKey__310	OBKey__289
+	//AP - Invoice Date						OBKey__178	OBKey__218
+	//AP - Invoice Amount					OBKey__181	OBKey__214
+	//MEMBER NUMBER							OBKey__110	OBKey__115
+	//AP - Dept								OBKey__236	OBKey__207
+	//AP - EMPLOYEE INFO - FILE #			OBKey__251	OBKey__180
+	//AP - Form Complete					OBKey__312	OBKey__293
+	//AP - GL Account						OBKey__226	OBKey__216
+	//AP - GL Acct Desc						OBKey__235	OBKey__223
+	//AP - GL Amount						OBKey__231	OBKey__210
+    //AP - GL Company						OBKey__233	OBKey__224
+        //AP - Vendor Name	                    OBKey__182	OBKey__219
+
+
+
+        var onLoadDept = "";
+        var onLoadMgr;
+        var myBoolean = 0;
+
+        //function to set the submit date. When the form is first created the date submitted keyword is gets filled in.
+        function setSubmitDate() {
+            var currentTime = new Date();
+            var month = currentTime.getMonth() + 1;
+            var day = currentTime.getDate();
+            var year = currentTime.getFullYear();
+            var dateString = month + "/" + day + "/" + year;
+
+            if (document.getElementById('OBKey__218_1').value == "") {
+                document.getElementById('OBKey__218_1').value = dateString;
+            }
+        }
+
+        //Adds trailing zeros to all values so the look like dollar amounts.
+        function addTrailingZeros() {
+            var tbl = document.getElementById('business_expenses');
+            var row_count = tbl.rows.length;
+            var AirTravel_amount = 0;
+            var Hotel_amount = 0;
+            var RegFeel_amount = 0;
+            var Meals_amount = 0;
+            var Miles_amount = 0;
+            var Other_amount = 0;
+            var Subtotal_amount = 0;
+            var DirectBills_amount = 0;
+            var OtherExplain_amount = 0;
+            var Reimbursed_amount = 0;
+            var AirTravel_temp = "";
+            var Hotel_temp = "";
+            var RegFee_temp = "";
+            var Meals_temp = "";
+            var Miles_temp = "";
+            var Other_temp = "";
+            var Subtotal_temp = "";
+            var DirectBills_temp = "";
+            var OtherExplain_temp = "";
+            var Reimburesed_temp = "";
+
+            for (i = 2; i < row_count - 1; i++) {
+
+                AirTravel_temp = tbl.rows[i].cells[2].childNodes[0].value;
+                Hotel_temp = tbl.rows[i].cells[3].childNodes[0].value;
+                RegFee_temp = tbl.rows[i].cells[4].childNodes[0].value;
+                Meals_temp = tbl.rows[i].cells[5].childNodes[0].value;
+                Miles_temp = tbl.rows[i].cells[6].childNodes[0].value;
+                Other_temp = tbl.rows[i].cells[7].childNodes[0].value;
+                Subtotal_temp = tbl.rows[i].cells[9].childNodes[0].value;
+                DirectBills_temp = tbl.rows[i].cells[10].childNodes[0].value;
+                OtherExplain_temp = tbl.rows[i].cells[11].childNodes[0].value;
+                Reimburesed_temp = tbl.rows[i].cells[12].childNodes[0].value;
+
+                if (AirTravel_temp != "") {
+                    AirTravel_amount = parseFloat(AirTravel_temp);
+                    tbl.rows[i].cells[2].childNodes[0].value = AirTravel_amount.toFixed(2);
+                }
+
+                if (Hotel_temp != "") {
+                    Hotel_amount = parseFloat(Hotel_temp);
+                    tbl.rows[i].cells[3].childNodes[0].value = Hotel_amount.toFixed(2);
+                }
+
+                if (RegFee_temp != "") {
+                    RegFee_amount = parseFloat(RegFee_temp);
+                    tbl.rows[i].cells[4].childNodes[0].value = RegFee_amount.toFixed(2);
+                }
+
+                if (Meals_temp != "") {
+                    Meals_amount = parseFloat(Meals_temp);
+                    tbl.rows[i].cells[5].childNodes[0].value = Meals_amount.toFixed(2);
+                }
+
+                if (Miles_temp != "") {
+                    Miles_amount = parseFloat(Miles_temp);
+                    tbl.rows[i].cells[6].childNodes[0].value = Miles_amount.toFixed(2);
+                }
+
+                if (Other_temp != "") {
+                    Other_amount = parseFloat(Other_temp);
+                    tbl.rows[i].cells[7].childNodes[0].value = Other_amount.toFixed(2);
+                }
+
+                if (Subtotal_temp != "") {
+                    Subtotal_amount = parseFloat(Subtotal_temp);
+                    tbl.rows[i].cells[9].childNodes[0].value = Subtotal_amount.toFixed(2);
+                }
+
+                if (DirectBills_temp != "") {
+                    DirectBills_amount = parseFloat(DirectBills_temp);
+                    tbl.rows[i].cells[10].childNodes[0].value = DirectBills_amount.toFixed(2);
+                }
+
+                if (OtherExplain_temp != "") {
+                    OtherExplain_amount = parseFloat(OtherExplain_temp);
+                    tbl.rows[i].cells[11].childNodes[0].value = OtherExplain_amount.toFixed(2);
+                }
+
+                if (Reimburesed_temp != "") {
+                    Reimbursed_amount = parseFloat(Reimburesed_temp);
+                    tbl.rows[i].cells[12].childNodes[0].value = Reimbursed_amount.toFixed(2);
+                }
+
+            }
+
+            var AirTravelTotal_temp = "";
+            AirTravelTotal_temp = document.getElementById('AirTravelTotal').value;
+            var AirTravelTotal_amount
+            AirTravelTotal_amount = parseFloat(AirTravelTotal_temp);
+            document.getElementById('AirTravelTotal').value = AirTravelTotal_amount.toFixed(2);
+
+            var HotelTotal_temp = "";
+            HotelTotal_temp = document.getElementById('HotelTotal').value;
+            var HotelTotal_amount
+            HotelTotal_amount = parseFloat(HotelTotal_temp);
+            document.getElementById('HotelTotal').value = HotelTotal_amount.toFixed(2);
+
+            var RegFeeTotal_temp = "";
+            RegFeeTotal_temp = document.getElementById('RegFeeTotal').value;
+            var RegFeeTotal_amount
+            RegFeeTotal_amount = parseFloat(RegFeeTotal_temp);
+            document.getElementById('RegFeeTotal').value = RegFeeTotal_amount.toFixed(2);
+
+            var MealsTotal_temp = "";
+            MealsTotal_temp = document.getElementById('MealsTotal').value;
+            var MealsTotal_amount
+            MealsTotal_amount = parseFloat(MealsTotal_temp);
+            document.getElementById('MealsTotal').value = RegFeeTotal_amount.toFixed(2);
+
+            var OtherTotal_temp = "";
+            OtherTotal_temp = document.getElementById('OtherTotal').value;
+            var OtherTotal_amount
+            OtherTotal_amount = parseFloat(OtherTotal_temp);
+            document.getElementById('OtherTotal').value = OtherTotal_amount.toFixed(2);
+
+            var SubtotalTotal_temp = "";
+            SubtotalTotal_temp = document.getElementById('SubtotalTotal').value;
+            var SubtotalTotal_amount
+            SubtotalTotal_amount = parseFloat(SubtotalTotal_temp);
+            document.getElementById('SubtotalTotal').value = SubtotalTotal_amount.toFixed(2);
+
+            var Reimbursed_temp = "";
+            Reimbursed_temp = document.getElementById('OBKey__214_1').value;
+            var Reimbursed_amount
+            Reimbursed_amount = parseFloat(Reimbursed_temp);
+            document.getElementById('OBKey__214_1').value = Reimbursed_amount.toFixed(2);
+
+            var DirectBillsTotal_temp = "";
+            DirectBillsTotal_temp = document.getElementById('DirectBillsTotal').value;
+            var DirectBillsTotal_amount
+            DirectBillsTotal_amount = parseFloat(DirectBillsTotal_temp);
+            document.getElementById('DirectBillsTotal').value = DirectBillsTotal_amount.toFixed(2);
+
+            var OtherExplainTotal_temp = "";
+            OtherExplainTotal_temp = document.getElementById('OtherExplainTotal').value;
+            var OtherExplainTotal_amount
+            OtherExplainTotal_amount = parseFloat(OtherExplainTotal_temp);
+            document.getElementById('OtherExplainTotal').value = OtherExplainTotal_amount.toFixed(2);
+
+        }
+
+        //Sets the department keyword to whatever is selected in the department dropdown.
+        function setDepartment() {
+            var w = document.f1.deptdropdown.selectedIndex;
+            var selected_text = document.f1.deptdropdown.options[w].value;
+            document.f1.OBKey__207_1.value = selected_text;
+        }
+
+        //Grabs the Total Miles from the mileage piece that is in the iframe.
+        function Add_to_Row() {
+            var w = document.f1.rowselect.selectedIndex;
+            var selected_text = document.f1.rowselect.options[w].value;
+            var testvar = window.frames[0];
+            document.getElementById("NumMiles" + selected_text).value = testvar.document.getElementById('txtTotalMiles').value;
+            calcMiles();
+        }
+
+        //Checks to see if a department was selected and sets a keyword to YES
+        function Expense_Report_Completed() {
+            var msg;
+            errmsg = ""
+
+            if (document.getElementById("OBKey__207_1").value == "") {
+                errmsg = "You have not selected a Department" + "\n"
+            }
+
+            if (document.getElementById("OBKey__289_1").value == "") {
+                errmsg = errmsg + "You have not entered an OnBase User Name" + "\n"
+            }
+
+            if (document.getElementById("OBKey__180_1").value == "") {
+                errmsg = errmsg + "You have not entered an Employee File No." + "\n"
+            }
+
+            if (document.getElementById("OBKey__219_1").value == "") {
+                errmsg = errmsg + "You have not entered an Employee/Volunteer Full Name." + "\n"
+            }
+
+            if (errmsg != "") {
+                alert(errmsg);
+                return false;
+            }
+
+            document.getElementById('OBKey__293_1').value = "YES";
+            //var w = document.f1.deptdropdown.selectedIndex;
+            //var selected_text = document.f1.deptdropdown.options[w].value;
+            //document.f1.OBKey__207_1.value = selected_text;
+        }
+
+        //Checks to see if a department was selected and sets a keyword to NO. Also prompts the user before submit.
+        function Expense_Report_notCompleted() {
+            var msg;
+            errmsg = ""
+
+            if (document.getElementById("OBKey__207_1").value == "") {
+                errmsg = "You have not selected a Department" + "\n"
+            }
+
+            if (errmsg != "") {
+                alert(errmsg);
+                return false;
+            }
+
+            var answer = confirm("Are you sure you want to save this Expense Report incomplete?")
+            if (answer) {
+                document.getElementById('OBKey__293_1').value = "NO";
+                //var w = document.f1.deptdropdown.selectedIndex;
+                //var selected_text = document.f1.deptdropdown.options[w].value;
+                //document.f1.OBKey__207_1.value = selected_text;
+            }
+            else {
+                return false;
+            }
+            return true;
+        }
+
+        //NOT USED
+        function onLoadInformation() {
+            alert("Department: " + onLoadDept);
+        }
+
+        //Stips out $ and ,
+        //Is this being used?
+        function stringFilter(input) {
+            s = input;
+            filteredValues = "$,";     // Characters stripped out
+            var i;
+            var returnString = "";
+            for (i = 0; i < s.length; i++) {  // Search through string and append to unfiltered values to returnString.
+                var c = s.charAt(i);
+                if (filteredValues.indexOf(c) == -1) returnString += c;
+            }
+            return returnString;
+        }
+
+        //Function created to kick off calculation of totals etc.
+        function calculate() {
+            totalExpenses();
+            totalDeductions();
+            calculate_reimbursed_column();
+            addTrailingZeros();
+        }
+
+        //Totals the number of miles. Also multiplies miles by IRS rate and adds it to Total Miles Expense.
+        function calcMiles() {
+            var tbl1 = document.getElementById('Diary');
+            var tbl2 = document.getElementById('business_expenses');
+            var row_count = tbl1.rows.length;
+            var Miles_total_amount = 0;
+            var TotalMilesExpense_total_amount = 0;
+            var irsrate = document.getElementById('IRS_Rate').value;
+            var Miles_temp = "";
+
+            for (i = 2; i < 12; i++) {
+                Miles_temp = tbl1.rows[i].cells[3].childNodes[0].value;
+
+                if (Miles_temp != "") {
+                    Miles_total_amount = Miles_total_amount + parseFloat(Miles_temp)
+                    //alert("Miles_total_amount in if statement = " + Miles_total_amount)
+                    //tbl2.rows[i].cells[6].childNodes[0].value = (parseFloat(irsrate) * parseFloat(Miles_temp))
+                    //TotalMilesExpense_total_amount = TotalMilesExpense_total_amount + (parseFloat(irsrate) * parseFloat(Miles_temp))
+                    var tempval;
+                    tempval = Math.round((parseFloat(irsrate) * parseFloat(Miles_temp)) * 100) / 100;
+                    tbl2.rows[i].cells[6].childNodes[0].value = tempval;
+                    TotalMilesExpense_total_amount = TotalMilesExpense_total_amount + tempval;
+                }
+
+                if (Miles_temp == "") {
+                    tbl2.rows[i].cells[6].childNodes[0].value = "";
+                }
+
+            }
+
+            document.getElementById('Total_Miles').value = Miles_total_amount;
+
+            var Total_Miles_Expense_amount = 0;
+            Total_Miles_Expense_amount = Math.round(TotalMilesExpense_total_amount * 100) / 100;
+            document.getElementById('Total_Miles_Expense').value = Total_Miles_Expense_amount.toFixed(2);
+
+            var Miles_B_Total_amount = 0;
+            Miles_B_Total_amount = Math.round(TotalMilesExpense_total_amount * 100) / 100;
+            document.getElementById('Miles_B_Total').value = Miles_B_Total_amount.toFixed(2);
+
+            calculate();
+        }
+
+        //Calculates the reimbursed column by subtracting the Direct Bills column and Other Explain XXX column from the subtotal column.
+        function calculate_reimbursed_column() {
+            var tbl = document.getElementById('business_expenses');
+            var row_count = tbl.rows.length;
+            var DirectBills_total_amount = 0;
+            var OtherExplain_total_amount = 0;
+            var Reimburesed_total_amount = 0;
+
+            var DirectBills_temp = ""
+            var OtherExplain_temp = ""
+            var Reimburesed_temp = ""
+
+            for (i = 2; i < row_count; i++) {
+                DirectBills_temp = tbl.rows[i].cells[10].childNodes[0].value
+                OtherExplain_temp = tbl.rows[i].cells[11].childNodes[0].value
+                Reimburesed_temp = tbl.rows[i].cells[12].childNodes[0].value
+                Reimburesed_total_amount = parseFloat(Reimburesed_temp)
+
+                if (DirectBills_temp != "") {
+                    Reimburesed_total_amount = Reimburesed_total_amount + (-1 * parseFloat(DirectBills_temp))
+                }
+
+                if (OtherExplain_temp != "") {
+                    Reimburesed_total_amount = Reimburesed_total_amount + (-1 * parseFloat(OtherExplain_temp))
+                }
+
+                tbl.rows[i].cells[12].childNodes[0].value = Math.round(Reimburesed_total_amount * 100) / 100;
+            }
+        }
+
+        //calculates the totals for Direct Bills column and Other Explain XXX column
+        function totalDeductions() {
+            var tbl = document.getElementById('business_expenses');
+            var row_count = tbl.rows.length;
+            var DirectBills_total_amount = 0;
+            var OtherExplain_total_amount = 0;
+
+            var DirectBills_temp = ""
+            var OtherExplain_temp = ""
+            for (i = 2; i < row_count - 1; i++) {
+                DirectBills_temp = tbl.rows[i].cells[10].childNodes[0].value
+                OtherExplain_temp = tbl.rows[i].cells[11].childNodes[0].value
+
+                if (DirectBills_temp != "") {
+                    DirectBills_total_amount = DirectBills_total_amount + parseFloat(DirectBills_temp)
+                }
+
+                if (OtherExplain_temp != "") {
+                    OtherExplain_total_amount = OtherExplain_total_amount + parseFloat(OtherExplain_temp)
+                }
+
+            }
+            document.getElementById('DirectBillsTotal').value = Math.round(DirectBills_total_amount * 100) / 100;
+            document.getElementById('OtherExplainTotal').value = Math.round(OtherExplain_total_amount * 100) / 100;
+        }
+
+        //calculates the totals for Expense columns
+        function totalExpenses() {
+            var tbl = document.getElementById('business_expenses');
+            var row_count = tbl.rows.length;
+            var AirTravel_total_amount = 0;
+            var Hotel_total_amount = 0;
+            var RegFee_total_amount = 0;
+            var Meals_total_amount = 0;
+            var Miles_total_amount = 0;
+            var Other_total_amount = 0;
+            var Subtotal_total_amount = 0;
+            var AirTravel_temp = ""
+            var Hotel_temp = ""
+            var RegFee_temp = ""
+            var Meals_temp = ""
+            var Miles_temp = ""
+            var Other_temp = ""
+            var Subtotal_row = 0
+            for (i = 2; i < row_count - 1; i++) {
+                AirTravel_temp = tbl.rows[i].cells[2].childNodes[0].value
+                Hotel_temp = tbl.rows[i].cells[3].childNodes[0].value
+                RegFee_temp = tbl.rows[i].cells[4].childNodes[0].value
+                Meals_temp = tbl.rows[i].cells[5].childNodes[0].value
+                Miles_temp = tbl.rows[i].cells[6].childNodes[0].value
+                Other_temp = tbl.rows[i].cells[7].childNodes[0].value
+                Subtotal_row = 0
+
+                if (AirTravel_temp != "") {
+                    AirTravel_total_amount = AirTravel_total_amount + parseFloat(AirTravel_temp)
+                    Subtotal_row = Subtotal_row + parseFloat(AirTravel_temp)
+                }
+
+                if (Hotel_temp != "") {
+                    Hotel_total_amount = Hotel_total_amount + parseFloat(Hotel_temp)
+                    Subtotal_row = Subtotal_row + parseFloat(Hotel_temp)
+                }
+
+                if (RegFee_temp != "") {
+                    RegFee_total_amount = RegFee_total_amount + parseFloat(RegFee_temp)
+                    Subtotal_row = Subtotal_row + parseFloat(RegFee_temp)
+                }
+
+                if (Meals_temp != "") {
+                    Meals_total_amount = Meals_total_amount + parseFloat(Meals_temp)
+                    Subtotal_row = Subtotal_row + parseFloat(Meals_temp)
+                }
+
+                if (Miles_temp != "") {
+                    //Miles_total_amount=Miles_total_amount + parseFloat(Miles_temp)
+                    Subtotal_row = Subtotal_row + parseFloat(Miles_temp)
+                }
+
+                if (Other_temp != "") {
+                    Other_total_amount = Other_total_amount + parseFloat(Other_temp)
+                    Subtotal_row = Subtotal_row + parseFloat(Other_temp)
+                }
+
+                tbl.rows[i].cells[9].childNodes[0].value = Subtotal_row
+                tbl.rows[i].cells[12].childNodes[0].value = Subtotal_row //Reimbursed
+                Subtotal_total_amount = Subtotal_total_amount + Subtotal_row
+            }
+            document.getElementById('AirTravelTotal').value = Math.round(AirTravel_total_amount * 100) / 100;
+            document.getElementById('HotelTotal').value = Math.round(Hotel_total_amount * 100) / 100;
+            document.getElementById('RegFeeTotal').value = Math.round(RegFee_total_amount * 100) / 100;
+            document.getElementById('MealsTotal').value = Math.round(Meals_total_amount * 100) / 100;
+            document.getElementById('OtherTotal').value = Math.round(Other_total_amount * 100) / 100;
+            document.getElementById('SubtotalTotal').value = Math.round(Subtotal_total_amount * 100) / 100;
+            document.getElementById('OBKey__214_1').value = Math.round(Subtotal_total_amount * 100) / 100;
+        }
+
+        //MODIFY THIS
+        function filldeptdropdown() {
+            //alert("filldeptdropdown");
+            getDepartments();
+        }
+
+        var objHttp;
+        var objXmlDoc;
+
+        function getDataFromWS(methodName, dataSetName, wsParamValue, wsParamName) {
+
+            // create the XML object
+            objXmlDoc = new ActiveXObject("Msxml2.DOMDocument");
+
+            if (objXmlDoc == null) {
+                alert("Unable to create DOM document!");
+
+            } else {
+
+                // create an XmlHttp instance
+                objHttp = new ActiveXObject("Microsoft.XMLHTTP");
+
+
+                // Create the SOAP Envelope
+                strEnvelope = "<soap:Envelope xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" +
+
+	                  " xsd=\"http://www.w3.org/2001/XMLSchema\"" +
+
+	                  " soap=\"http://schemas.xmlsoap.org/soap/envelope/\">" +
+
+	                  "  <soap:Body>" +
+
+	 				  "      <" + methodName + " xmlns=\"http://tempuri.org/\">" +
+
+	                  "    </" + methodName + ">" +
+
+	                  "  </soap:Body>" +
+
+	                  "</soap:Envelope>";
+
+
+                // Set up the post
+                objHttp.onreadystatechange = function() {
+
+                    // a readyState of 4 means we're ready to use the data returned by XMLHTTP
+                    if (objHttp.readyState == 4) {
+
+                        // get the return envelope
+                        var szResponse = objHttp.responseText;
+
+                        // load the return into an XML data island
+                        objXmlDoc.loadXML(szResponse);
+
+                        if (objXmlDoc.parseError.errorCode != 0) {
+                            var xmlErr = objXmlDoc.parseError;
+                            alert("You have error " + xmlErr.reason);
+                        } else {
+
+                            switch (dataSetName) {
+
+                                case "DepartmentDS":
+                                    processDepartments();
+                                    break;
+
+                            }
+                        }
+
+                    }
+                }
+
+                var szUrl;
+                //alert("getDataFromWS");
+                szUrl = "http://onbaseqc/AP_Workflow/AP_Workflow_Service.asmx/" + methodName;
+
+
+                if (wsParamValue != null) {
+
+                    szUrl += "?" + wsParamName + "=" + wsParamValue;
+                }
+
+                // send the POST to the Web service
+                //alert("szUrl " + szUrl);
+                objHttp.open("POST", szUrl, true);
+                objHttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+                objHttp.send(strEnvelope);
+            }
+        }
+
+        function getDepartments() {
+
+
+            //alert("getDepartments");
+            onLoadDept = document.f1.OBKey__207_1.value;
+
+            //if (onLoadDept = "") {
+            var func = "getDataFromWS('GetDepartments', 'DepartmentDS')";
+            document.all.lblCategoryDropdown.innerText = "Please wait while data is retrieved...";
+            window.setTimeout(func, 1);
+            //}
+        }
+
+
+        function processDepartments() {
+            //alert("processDepartments");
+            // get an XML data island with the category data
+
+            objNodeList = objXmlDoc.getElementsByTagName("DepartmentsDataTable");
+
+            // add default value to the dropdown
+            document.forms[1].deptdropdown.options[0] = new Option("Select a Department", 0);
+
+            // walk through the nodeList and populate the dropdown
+            //alert("objNodeList.length " + objNodeList.length);
+            for (var i = 0; i < objNodeList.length; i++) {
+                var dataNodeList;
+                var textNode;
+                var valueNode;
+
+                dataNodeList = objNodeList[i].childNodes;
+                valueNode = dataNodeList.item(1);
+                textNode = dataNodeList.item(1);
+
+                document.forms[1].deptdropdown.options[i + 1] = new Option(textNode.text, valueNode.text);
+                //document.all.lblCategoryDropdown.innerText="Select a Department:";
+                document.all.lblCategoryDropdown.innerText = "";
+                document.forms[1].deptdropdown.style.visibility = "visible";
+
+            }
+
+        }
+
+        function populateDept() {
+            var deptval = document.getElementById('OBKey__207_1').value
+            if (document.getElementById('OBKey__207_1').value != "") {
+                document.forms[1].deptdropdown.options[1] = new Option(deptval, deptval);
+            }
+        }
+
+        function onLoadFunction() {
+            var timestamp = Number(new Date());
+            document.f2.TimeValue.value = timestamp.toString();
+            document.f1.OBKey__288_1.value = timestamp.toString();
+        
+            setSubmitDate();
+            populateDept();
+        }
+        
+		function collapse_table2(e_table)
+{
+   var id_table=document.getElementById(e_table).style;
+   if(document.getElementById)
+   {
+         if(id_table.display=="block") {
+            id_table.display="none";
+         }
+         else 
+		 {
+            id_table.display="block";
+         }
+      return false;
+   }
+   else
+   {
+      return true;
+   }
+}
+        </script>
+
+</head>
+
+<body onLoad="onLoadFunction();">
+<FORM name="f2" id="f2" METHOD="LINK" ACTION="http://obweb/attachmentswebapp/default.aspx" target="_blank">
+<table width="334" border="1">
+    <tr>
+      <td width="174">Expense Report Number</td>
+      <td width="144"><input type="text" id="TimeValue" name="TimeValue" /></td>
+    </tr>
+    <tr>
+      <td colspan="2"><input type="submit" value="Upload Files" /></td>
+    </tr>
+  </table>
+   <INPUT type="hidden" id="FormType" name="FormType" value="ExpenseReport" />
+</FORM>
+
+
+<div id="divContainer" class="form-container" style="width: 1500px">
+  <form method="POST" action="http://obweb/onbase/loginformproc.aspx?FromLoginFormProc=true" name="f1" id="f1">
+  <INPUT type="hidden" name="OBDocumentType" value="848" />
+    <!-- Divs for each expected section, plus a container. -->
+    <!-- Header - typically form title plus buttons -->
+    <div id="divHeader" class="form-header" style="width: 1499px;">
+            <div class="form-header-table">
+			<div id="divHeaderText" class="header-title" style="float: left; width: 289px; height: 25px; top: 8px; clip: rect(4px, auto, auto, auto);" align="center">RBFCU Expense Report</div>
+                <div class="header-buttons">
+                    &nbsp;&nbsp;
+                    <input class="obbutton" type="submit" name="OBBtn_Save" value="Save" onclick="return Expense_Report_Completed();"/>&nbsp;
+                    <input class="obbutton" type="submit" name="OBBtn_Yes" value="Save Incomplete" onclick="return Expense_Report_notCompleted();"/>&nbsp;
+                <input class="obbutton" type="submit" name="OBBtn_No" value="Cancel" />&nbsp;
+                    <input type="button" name="button" id="button" value="Get Departments" onClick="filldeptdropdown();">
+              &nbsp;              </div>
+            </div>
+    </div>
+        
+    <div id="divContent" class="form-content">
+        <table width="100%" border="0" align="left">
+          <tr>
+            <td width="792"><table width="100" border="1">
+              <tr>
+                <td><table width="347" border="0">
+                    <tr>
+                      <td width="147" align="left">OnBase User Name</td>
+                      <td width="190"><label>
+                        <input class="key-input" type="text"   value="" name="OBKey__289_1" id="OBKey__289_1" style="width: 190px" />
+                      </label></td>
+                    </tr>
+                </table></td>
+                <td><table width="347" border="0">
+                  <tr>
+                    <td width="147" align="left">Employee File No.</td>
+                    <td width="190"><label>
+                      <input class="key-input" type="text"  name="OBKey__180_1" id="OBKey__180_1" style="width: 190px" />
+                    </label></td>
+                  </tr>
+                </table></td>
+                <td><table width="303" border="0">
+                    <tr>
+                      <td width="118" align="left">Checking:
+                        <input type="checkbox" name="checkbox" id="checkbox" /></td>
+                      <td width="175" align="left">Savings:
+                        <input type="checkbox" name="checkbox2" id="checkbox2" />                      </td>
+                    </tr>
+                </table></td>
+              </tr>
+              <tr>
+                <td><table width="347" border="0">
+                  <tr>
+                    <td width="147" align="left">Deposit Acct. No.</td>
+                    <td width="190"><input class="key-input" type="text"  name="OBKey__115_1" id="OBKey__115_1" style="width: 190px" /></td>
+                  </tr>
+                </table></td>
+                <td><font size="2" face="arial" color="red">(Include account # only if you want to change from last report.)</font></td>
+                <td><table width="303" border="0">
+                    <tr>
+                      <td width="118" align="left">Date Submitted</td>
+                      <td width="175"><label>
+                        <input class="key-input" type="text"  name="OBKey__218_1" id="OBKey__218_1" style="width: 190px" />
+                      </label></td>
+                    </tr>
+                </table></td>
+              </tr>
+              <tr>
+                <td><table width="347" border="0">
+                    <tr>
+                      <td width="147" align="left">Employee/Volunteer Full Name</td>
+                      <td width="190"><label>
+                        <input class="key-input" type="text"  name="OBKey__219_1" id="OBKey__219_1" style="width: 190px" />
+                      </label></td>
+                    </tr>
+                </table></td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+              </tr>
+              <tr>
+                <td colspan="3"><table width="428" border="0">
+                    <tr>
+                      <td width="118" align="left">Department/Branch</td>
+                      <td width="300"><label>
+                          <font face="Arial" size="2">
+                          <div id="lblCategoryDropdown"></div>
+                        <select id="deptdropdown" name="deptdropdown" style="WIDTH: 300px; visibility: visible" onchange="setDepartment()">
+                        </select>
+                          <br />
+                          <font face="Arial" size="2">
+                          <div id="lblProductDropdown" style="visibility: hidden"></div>
+                          </font>
+                          <div id="waitForTable" style="visibility: hidden; font-family: arial; font-size: 9pt"> </div>
+                        </label></td>
+                    </tr>
+                </table></td>
+              </tr>
+            </table>
+              <table border="1">
+                <tbody>
+    <tr>
+      <td colspan="4"><div id="divHeader" class="form-header" style="width: 760px;">
+            <div class="form-header-table">
+			<div id="divHeaderText" class="header-title" style="float: left; width: 289px; height: 25px; top: 8px; clip: rect(4px, auto, auto, auto);" align="center">GL Information</div>
+            <div class="header-buttons">
+            &nbsp;&nbsp;&nbsp; 
+            <input type="button" name="button3" id="button3" value="Expand/Collapse GL Table" onclick="return collapse_table2('body3');" />
+            </div>
+    </div></td>
+    </tr>
+  </tbody>
+                <tbody id="body3">
+                <tr>
+                  <th width="16">#</th>
+                  <th width="120"><font size="2" face="Arial, Helvetica, sans-serif">GL Code</font></th>
+                  <th width="180"><font size="2" face="Arial, Helvetica, sans-serif">Description</font></th>
+                  <th width="180"><font size="2" face="Arial, Helvetica, sans-serif">Amount</font></th>
+                  <th width="90"> <font size="2" face="Arial, Helvetica, sans-serif">Company</font></th>
+                </tr>
+                <tr>
+                  <td><label name ="label_1" id="label_1">1</label></td>
+                  <td><input name="OBKey__216_1" type="text" id="OBKey__216_1" size="20" readonly="readonly"/></td>
+                  <td><input name="OBKey__223_1" type="text" id="OBKey__223_1" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__210_1" type="text" id="OBKey__210_1" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__224_1" type="text" id="OBKey__224_1" size="15" readonly="readonly"/></td>
+                </tr>
+                <tr>
+                  <td><label name ="label_2" id="label_2">2</label></td>
+                  <td><input name="OBKey__216_2" type="text" id="OBKey__216_2" size="20" readonly="readonly"/></td>
+                  <td><input name="OBKey__223_2" type="text" id="OBKey__223_2" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__210_2" type="text" id="OBKey__210_2" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__224_2" type="text" id="OBKey__224_2" size="15" readonly="readonly"/></td>
+                </tr>
+                <tr>
+                  <td><label name ="label_3" id="label_3">3</label></td>
+                  <td><input name="OBKey__216_3" type="text" id="OBKey__216_3" size="20" readonly="readonly"/></td>
+                  <td><input name="OBKey__223_3" type="text" id="OBKey__223_3" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__210_3" type="text" id="OBKey__210_3" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__224_3" type="text" id="OBKey__224_3" size="15" readonly="readonly"/></td>
+                </tr>
+                <tr>
+                  <td><label name ="label_4" id="label_4">4</label></td>
+                  <td><input name="OBKey__216_4" type="text" id="OBKey__216_4" size="20" readonly="readonly"/></td>
+                  <td><input name="OBKey__223_4" type="text" id="OBKey__223_4" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__210_4" type="text" id="OBKey__210_4" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__224_4" type="text" id="OBKey__224_4" size="15" readonly="readonly"/></td>
+                </tr>
+                <tr>
+                  <td><label name ="label_5" id="label_5">5</label></td>
+                  <td><input name="OBKey__216_5" type="text" id="OBKey__216_5" size="20" readonly="readonly"/></td>
+                  <td><input name="OBKey__223_5" type="text" id="OBKey__223_5" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__210_5" type="text" id="OBKey__210_5" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__224_5" type="text" id="OBKey__224_5" size="15" readonly="readonly"/></td>
+                </tr>
+                <tr>
+                  <td><label name ="label_6" id="label_6">6</label></td>
+                  <td><input name="OBKey__216_6" type="text" id="OBKey__216_6" size="20" readonly="readonly"/></td>
+                  <td><input name="OBKey__223_6" type="text" id="OBKey__223_6" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__210_6" type="text" id="OBKey__210_6" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__224_6" type="text" id="OBKey__224_6" size="15" readonly="readonly"/></td>
+                </tr>
+                <tr>
+                  <td><label name ="label_7" id="label_7">7</label></td>
+                  <td><input name="OBKey__216_7" type="text" id="OBKey__216_7" size="20" readonly="readonly"/></td>
+                  <td><input name="OBKey__223_7" type="text" id="OBKey__223_7" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__210_7" type="text" id="OBKey__210_7" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__224_7" type="text" id="OBKey__224_7" size="15" readonly="readonly"/></td>
+                </tr>
+                <tr>
+                  <td><label name ="label_8" id="label_8">8</label></td>
+                  <td><input name="OBKey__216_8" type="text" id="OBKey__216_8" size="20" readonly="readonly"/></td>
+                  <td><input name="OBKey__223_8" type="text" id="OBKey__223_8" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__210_8" type="text" id="OBKey__210_8" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__224_8" type="text" id="OBKey__224_8" size="15" readonly="readonly"/></td>
+                </tr>
+                <tr>
+                  <td><label name ="label_9" id="label_9">9</label></td>
+                  <td><input name="OBKey__216_9" type="text" id="OBKey__216_9" size="20" readonly="readonly"/></td>
+                  <td><input name="OBKey__223_9" type="text" id="OBKey__223_9" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__210_9" type="text" id="OBKey__210_9" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__224_9" type="text" id="OBKey__224_9" size="15" readonly="readonly"/></td>
+                </tr>
+                <tr>
+                  <td><label name ="label_10" id="label_10">10</label></td>
+                  <td><input name="OBKey__216_10" type="text" id="OBKey__216_10" size="20" readonly="readonly"/></td>
+                  <td><input name="OBKey__223_10" type="text" id="OBKey__223_10" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__210_10" type="text" id="OBKey__210_10" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__224_10" type="text" id="OBKey__224_10" size="15" readonly="readonly"/></td>
+                </tr>
+                <tr>
+                  <td><label name ="label_11" id="label_11">11</label></td>
+                  <td><input name="OBKey__216_11" type="text" id="OBKey__216_11" size="20" readonly="readonly"/></td>
+                  <td><input name="OBKey__223_11" type="text" id="OBKey__223_11" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__210_11" type="text" id="OBKey__210_11" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__224_11" type="text" id="OBKey__224_11" size="15" readonly="readonly"/></td>
+                </tr>
+                <tr>
+                  <td><label name ="label_12" id="label_12">12</label></td>
+                  <td><input name="OBKey__216_12" type="text" id="OBKey__216_12" size="20" readonly="readonly"/></td>
+                  <td><input name="OBKey__223_12" type="text" id="OBKey__223_12" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__210_12" type="text" id="OBKey__210_12" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__224_12" type="text" id="OBKey__224_12" size="15" readonly="readonly"/></td>
+                </tr>
+                <tr>
+                  <td><label name ="label_13" id="label_13">13</label></td>
+                  <td><input name="OBKey__216_13" type="text" id="OBKey__216_13" size="20" readonly="readonly"/></td>
+                  <td><input name="OBKey__223_13" type="text" id="OBKey__223_13" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__210_13" type="text" id="OBKey__210_13" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__224_13" type="text" id="OBKey__224_13" size="15" readonly="readonly"/></td>
+                </tr>
+                <tr>
+                  <td><label name ="label_14" id="label_14">14</label></td>
+                  <td><input name="OBKey__216_14" type="text" id="OBKey__216_14" size="20" readonly="readonly"/></td>
+                  <td><input name="OBKey__223_14" type="text" id="OBKey__223_14" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__210_14" type="text" id="OBKey__210_14" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__224_14" type="text" id="OBKey__224_14" size="15" readonly="readonly"/></td>
+                </tr>
+                <tr>
+                  <td><label name ="label_15" id="label_15">15</label></td>
+                  <td><input name="OBKey__216_15" type="text" id="OBKey__216_15" size="20" readonly="readonly"/></td>
+                  <td><input name="OBKey__223_15" type="text" id="OBKey__223_15" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__210_15" type="text" id="OBKey__210_15" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__224_15" type="text" id="OBKey__224_15" size="15" readonly="readonly"/></td>
+                </tr>
+                <tr>
+                  <td><label name ="label_16" id="label_16">16</label></td>
+                  <td><input name="OBKey__216_16" type="text" id="OBKey__216_16" size="20" readonly="readonly"/></td>
+                  <td><input name="OBKey__223_16" type="text" id="OBKey__223_16" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__210_16" type="text" id="OBKey__210_16" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__224_16" type="text" id="OBKey__224_16" size="15" readonly="readonly"/></td>
+                </tr>
+                <tr>
+                  <td><label name ="label_17" id="label_17">17</label></td>
+                  <td><input name="OBKey__216_17" type="text" id="OBKey__216_17"size= "20" readonly="readonly"/></td>
+                  <td><input name="OBKey__223_17" type="text" id="OBKey__223_17" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__210_17" type="text" id="OBKey__210_17" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__224_17" type="text" id="OBKey__224_17" size="15" readonly="readonly"/></td>
+                </tr>
+                <tr>
+                  <td><label name ="label_18" id="label_18">18</label></td>
+                  <td><input name="OBKey__216_18" type="text" id="OBKey__216_18"size= "20" readonly="readonly"/></td>
+                  <td><input name="OBKey__223_18" type="text" id="OBKey__223_18" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__210_18" type="text" id="OBKey__210_18" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__224_18" type="text" id="OBKey__224_18" size="15" readonly="readonly"/></td>
+                </tr>
+                <tr>
+                  <td><label name ="label_19" id="label_19">19</label></td>
+                  <td><input name="OBKey__216_19" type="text" id="OBKey__216_19"size= "20" readonly="readonly"/></td>
+                  <td><input name="OBKey__223_19" type="text" id="OBKey__223_19" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__210_19" type="text" id="OBKey__210_19" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__224_19" type="text" id="OBKey__224_19" size="15" readonly="readonly"/></td>
+                </tr>
+                <tr>
+                  <td><label name ="label_20" id="label_20">20</label></td>
+                  <td><input name="OBKey__216_20" type="text" id="OBKey__216_20"size= "20" readonly="readonly"/></td>
+                  <td><input name="OBKey__223_20" type="text" id="OBKey__223_20" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__210_20" type="text" id="OBKey__210_20" size="30" readonly="readonly"/></td>
+                  <td><input name="OBKey__224_20" type="text" id="OBKey__224_20" size="15" readonly="readonly"/></td>
+                </tr>
+                  </tbody>
+              </table></td>
+          </tr>
+          
+
+          <tr>
+            <td align="left">&nbsp;</td>
+          </tr>
+          <tr>
+            <td><table width="97%" border="1" class="myclass1" id="business_expenses">
+              <tr>
+                <td>&nbsp;</td>
+                <td colspan="8">BUSINESS EXPENSES (EXCLUDE PERSONAL)</td>
+                <td>&nbsp;</td>
+                <td colspan="2">Deductions</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+              </tr>
+              <tr>
+                <td WIDTH="2%"><table width="25px" border="0">
+                    <tr>
+                      <td>No.</td>
+                    </tr>
+                  </table>                </td>
+                <td WIDTH="4%">Dates</td>
+                <td WIDTH="4%">Air Travel</td>
+                <td WIDTH="4%">Hotel</td>
+                <td WIDTH="4%">Reg. Fee</td>
+                <td WIDTH="4%">Meals</td>
+                <td WIDTH="4%">Miles (B)</td>
+                <td WIDTH="4%">Other</td>
+                <td WIDTH="4%">Explain &quot;Other&quot;</td>
+                <td WIDTH="4%">Subtotal</td>
+                <td WIDTH="4%">Direct Bills</td>
+                <td WIDTH="4%">Other Explain xxx</td>
+                <td WIDTH="4%">Reimbursed</td>
+                <td WIDTH="4%">Code (C)</td>
+              </tr>
+              <tr>
+                <td>1</td>
+                <td><input type="text" name="Dates1" id="Dates1" style="width: 90px"/></td>
+                <td><input type="text" name="AirTravel1" id="AirTravel1" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Hotel1" id="Hotel1" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="RegFee1" id="RegFee1" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Meals1" id="Meals1" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Miles_B1" id="Miles_B1" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="Other1" id="Other1" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="ExplainOther1" id="ExplainOther1" style="width: 125px"/></td>
+                <td><input type="text" name="Subtotal1" id="Subtotal1" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="DirectBills1" id="DirectBills1" style="width: 90px; color: #FF0000" onblur="calculate()"/></td>
+                <td><input type="text" name="OtherExplain1" id="OtherExplain1" style="width: 125px; color: #FF0000" onblur="calculate()"/></td>
+                <td><input type="text" name="Reimbursed1" id="Reimbursed1" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="Code1" id="Code1" style="width: 90px"/></td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td><input type="text" name="Dates2" id="Dates2" style="width: 90px"/></td>
+                <td><input type="text" name="AirTravel2" id="AirTravel2" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Hotel2" id="Hotel2" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="RegFee2" id="RegFee2" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Meals2" id="Meals2" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Miles_B2" id="Miles_B2" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="Other2" id="Other2" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="ExplainOther2" id="ExplainOther2" style="width: 125px"/></td>
+                <td><input type="text" name="Subtotal2" id="Subtotal2" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="DirectBills2" id="DirectBills2" style="width: 90px; color: #FF0000" onblur="calculate()"/></td>
+                <td><input type="text" name="OtherExplain2" id="OtherExplain2" style="width: 125px; color: #FF0000" onblur="calculate()"/></td>
+                <td><input type="text" name="Reimbursed2" id="Reimbursed2" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="Code2" id="Code2" style="width: 90px"/></td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td><input type="text" name="Dates3" id="Dates3" style="width: 90px"/></td>
+                <td><input type="text" name="AirTravel3" id="AirTravel3" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Hotel3" id="Hotel3" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="RegFee3" id="RegFee3" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Meals3" id="Meals3" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Miles_B3" id="Miles_B3" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="Other3" id="Other3" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="ExplainOther3" id="ExplainOther3" style="width: 125px"/></td>
+                <td><input type="text" name="Subtotal3" id="Subtotal3" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="DirectBills3" id="DirectBills3" style="width: 90px; color: #FF0000" onblur="calculate()"/></td>
+                <td><input type="text" name="OtherExplain3" id="OtherExplain3" style="width: 125px; color: #FF0000" onblur="calculate()"/></td>
+                <td><input type="text" name="Reimbursed3" id="Reimbursed3" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="Code3" id="Code3" style="width: 90px"/></td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td><input type="text" name="Dates4" id="Dates4" style="width: 90px"/></td>
+                <td><input type="text" name="AirTravel4" id="AirTravel4" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Hotel4" id="Hotel4" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="RegFee4" id="RegFee4" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Meals4" id="Meals4" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Miles_B4" id="Miles_B4" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="Other4" id="Other4" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="ExplainOther4" id="ExplainOther4" style="width: 125px"/></td>
+                <td><input type="text" name="Subtotal4" id="Subtotal4" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="DirectBills4" id="DirectBills4" style="width: 90px; color: #FF0000" onblur="calculate()"/></td>
+                <td><input type="text" name="OtherExplain4" id="OtherExplain4" style="width: 125px; color: #FF0000" onblur="calculate()"/></td>
+                <td><input type="text" name="Reimbursed4" id="Reimbursed4" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="Code4" id="Code4" style="width: 90px"/></td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td><input type="text" name="Dates5" id="Dates5" style="width: 90px"/></td>
+                <td><input type="text" name="AirTravel5" id="AirTravel5" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Hotel5" id="Hotel5" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="RegFee5" id="RegFee5" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Meals5" id="Meals5" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Miles_B5" id="Miles_B5" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="Other5" id="Other5" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="ExplainOther5" id="ExplainOther5" style="width: 125px" onblur="calculate()"/></td>
+                <td><input type="text" name="Subtotal5" id="Subtotal5" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="DirectBills5" id="DirectBills5" style="width: 90px; color: #FF0000" onblur="calculate()"/></td>
+                <td><input type="text" name="OtherExplain5" id="OtherExplain5" style="width: 125px; color: #FF0000" onblur="calculate()"/></td>
+                <td><input type="text" name="Reimbursed5" id="Reimbursed5" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="Code5" id="Code5" style="width: 90px"/></td>
+              </tr>
+              <tr>
+                <td>6</td>
+                <td><input type="text" name="Dates6" id="Dates6" style="width: 90px"/></td>
+                <td><input type="text" name="AirTravel6" id="AirTravel6" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Hotel6" id="Hotel6" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="RegFee6" id="RegFee6" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Meals6" id="Meals6" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Miles_B6" id="Miles_B6" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="Other6" id="Other6" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="ExplainOther6" id="ExplainOther6" style="width: 125px"/></td>
+                <td><input type="text" name="Subtotal6" id="Subtotal6" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="DirectBills6" id="DirectBills6" style="width: 90px; color: #FF0000" onblur="calculate()"/></td>
+                <td><input type="text" name="OtherExplain6" id="OtherExplain6" style="width: 125px; color: #FF0000" onblur="calculate()"/></td>
+                <td><input type="text" name="Reimbursed6" id="Reimbursed6" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="Code6" id="Code6" style="width: 90px"/></td>
+              </tr>
+              <tr>
+                <td>7</td>
+                <td><input type="text" name="Dates7" id="Dates7" style="width: 90px"/></td>
+                <td><input type="text" name="AirTravel7" id="AirTravel7" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Hotel7" id="Hotel7" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="RegFee7" id="RegFee7" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Meals7" id="Meals7" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Miles_B7" id="Miles_B7" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="Other7" id="Other7" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="ExplainOther7" id="ExplainOther7" style="width: 125px"/></td>
+                <td><input type="text" name="Subtotal7" id="Subtotal7" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="DirectBills7" id="DirectBills7" style="width: 90px; color: #FF0000" onblur="calculate()"/></td>
+                <td><input type="text" name="OtherExplain7" id="OtherExplain7" style="width: 125px; color: #FF0000" onblur="calculate()"/></td>
+                <td><input type="text" name="Reimbursed7" id="Reimbursed7" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="Code7" id="Code7" style="width: 90px"/></td>
+              </tr>
+              <tr>
+                <td>8</td>
+                <td><input type="text" name="Dates8" id="Dates8" style="width: 90px"/></td>
+                <td><input type="text" name="AirTravel8" id="AirTravel8" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Hotel8" id="Hotel8" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="RegFee8" id="RegFee8" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Meals8" id="Meals8" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Miles_B8" id="Miles_B8" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="Other8" id="Other8" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="ExplainOther8" id="ExplainOther8" style="width: 125px"/></td>
+                <td><input type="text" name="Subtotal8" id="Subtotal8" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="DirectBills8" id="DirectBills8" style="width: 90px; color: #FF0000" onblur="calculate()"/></td>
+                <td><input type="text" name="OtherExplain8" id="OtherExplain8" style="width: 125px; color: #FF0000" onblur="calculate()"/></td>
+                <td><input type="text" name="Reimbursed8" id="Reimbursed8" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="Code8" id="Code8" style="width: 90px"/></td>
+              </tr>
+              <tr>
+                <td>9</td>
+                <td><input type="text" name="Dates9" id="Dates9" style="width: 90px"/></td>
+                <td><input type="text" name="AirTravel9" id="AirTravel9" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Hotel9" id="Hotel9" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="RegFee9" id="RegFee9" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Meals9" id="Meals9" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Miles_B9" id="Miles_B9" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="Other9" id="Other9" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="ExplainOther9" id="ExplainOther9" style="width: 125px"/></td>
+                <td><input type="text" name="Subtotal9" id="Subtotal9" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="DirectBills9" id="DirectBills9" style="width: 90px; color: #FF0000" onblur="calculate()"/></td>
+                <td><input type="text" name="OtherExplain9" id="OtherExplain9" style="width: 125px; color: #FF0000" onblur="calculate()"/></td>
+                <td><input type="text" name="Reimbursed9" id="Reimbursed9" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="Code9" id="Code9" style="width: 90px"/></td>
+              </tr>
+              <tr>
+                <td>10</td>
+                <td><input type="text" name="Dates10" id="Dates10" style="width: 90px"/></td>
+                <td><input type="text" name="AirTravel10" id="AirTravel10" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Hotel10" id="Hotel10" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="RegFee10" id="RegFee10" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Meals10" id="Meals10" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="Miles_B10" id="Miles_B10" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="Other10" id="Other10" style="width: 90px" onblur="calculate()"/></td>
+                <td><input type="text" name="ExplainOther10" id="ExplainOther10" style="width: 125px"/></td>
+                <td><input type="text" name="Subtotal10" id="Subtotal10" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="DirectBills10" id="DirectBills10" style="width: 90px; color: #FF0000" onblur="calculate()"/></td>
+                <td><input type="text" name="OtherExplain10" id="OtherExplain10" style="width: 125px; color: #FF0000" onblur="calculate()"/></td>
+                <td><input type="text" name="Reimbursed10" id="Reimbursed10" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="Code10" id="Code10" style="width: 90px"/></td>
+              </tr>
+              <tr>
+                <td>&nbsp;</td>
+                <td>Totals</td>
+                <td><input type="text" name="AirTravelTotal" id="AirTravelTotal" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="HotelTotal" id="HotelTotal" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="RegFeeTotal" id="RegFeeTotal" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="MealsTotal" id="MealsTotal" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="Miles_B_Total" id="Miles_B_Total" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="OtherTotal" id="OtherTotal" style="width: 90px" readonly="readonly"/></td>
+                <td><table width="100%" border="0"  bgcolor="#C0C0C0"><tr><td>&nbsp;</td></tr></table></td>
+                <td><input type="text" name="SubtotalTotal" id="SubtotalTotal" style="width: 90px" readonly="readonly"/></td>
+                <td><input type="text" name="DirectBillsTotal" id="DirectBillsTotal" style="width: 90px; color: #FF0000" readonly="readonly"/></td>
+                <td><input type="text" name="OtherExplainTotal" id="OtherExplainTotal" style="width: 125px; color: #FF0000" readonly="readonly"/></td>
+                <td><input type="text" name="OBKey__214_1" id="OBKey__214_1" style="width: 90px" readonly="readonly"/></td>
+                <td><table width="100%" border="0"  bgcolor="#C0C0C0"><tr><td>&nbsp;</td></tr></table></td>
+              </tr>
+            </table></td>
+          </tr>
+          <tr>
+            <td><table width="100" border="1">
+              <tr>
+                <td><label>
+                  <select name="rowselect" id="rowselect" style="width: 90px">
+                    <option value="1" selected="selected">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10</option>
+                  </select>
+                </label></td>
+                <td><label>
+                  <input type="button" name="button2" id="button2" value="Add to Row" onclick="return Add_to_Row();"/>
+                </label></td>
+              </tr>
+            </table></td>
+          </tr>
+          <tr>
+            <td><table width="1495" border="0">
+              <tr>
+                  <td width="550"><iframe src="/BMC/index.html" frameborder="0"width="550"height="600">
+                    <p>Your browser does not support iframes.</p>
+                  </iframe></td>
+                <td width="935" valign="top"><table class="myclass2" width="99%" border="1" id="Diary">
+                <tr>
+                      <td colspan="6">Diary (A):</td>
+                  </tr>
+                    <tr>
+                      <td width="3%"><table width="25px" border="0">
+                          <tr>
+                            <td>No.</td>
+                          </tr>
+                      </table></td>
+                      <td width="7%">Dates</td>
+                      <td width="30%">City, Business Purpose or Activity, Names of Business Associates, Etc.</td>
+                      <td width="7%"># Miles</td>
+                      <td width="2%">No.</td>
+                      <td width="51%"> ***Explain &quot;Other&quot; Deductions (A):</td>
+                    </tr>
+                    <tr>
+                      <td>1</td>
+                      <td><input name="DiaryDate1" type="text" id="DiaryDate1" style="width: 90px"/></td>
+                      <td><input name="Purpose1" type="text" id="Purpose1" style="width: 350px"/></td>
+                      <td><input name="NumMiles1" type="text" id="NumMiles1" style="width: 90px" onblur="calcMiles()"/></td>
+                      <td>1</td>
+                      <td><input name="ExplainOtherDeductions1" type="text" id="ExplainOtherDeductions1" style="width: 300px"/></td>
+                    </tr>
+                    <tr>
+                      <td>2</td>
+                      <td><input name="DiaryDate2" type="text" id="DiaryDate2" style="width: 90px"/></td>
+                      <td><input name="Purpose2" type="text" id="Purpose2" style="width: 350px"/></td>
+                      <td><input name="NumMiles2" type="text" id="NumMiles2" style="width: 90px" onblur="calcMiles()"/></td>
+                      <td>2</td>
+                      <td><input name="ExplainOtherDeductions2" type="text" id="ExplainOtherDeductions2" style="width: 300px"/></td>
+                    </tr>
+                    <tr>
+                      <td>3</td>
+                      <td><input name="DiaryDate3" type="text" id="DiaryDate3" style="width: 90px"/></td>
+                      <td><input name="Purpose3" type="text" id="Purpose3" style="width: 350px"/></td>
+                      <td><input name="NumMiles3" type="text" id="NumMiles3" style="width: 90px" onblur="calcMiles()"/></td>
+                      <td>3</td>
+                      <td><input name="ExplainOtherDeductions3" type="text" id="ExplainOtherDeductions3" style="width: 300px"/></td>
+                    </tr>
+                    <tr>
+                      <td>4</td>
+                      <td><input name="DiaryDate4" type="text" id="DiaryDate4" style="width: 90px"/></td>
+                      <td><input name="Purpose4" type="text" id="Purpose4" style="width: 350px"/></td>
+                      <td><input name="NumMiles4" type="text" id="NumMiles4" style="width: 90px" onblur="calcMiles()"/></td>
+                      <td>4</td>
+                      <td><input name="ExplainOtherDeductions4" type="text" id="ExplainOtherDeductions4" style="width: 300px"/></td>
+                    </tr>
+                    <tr>
+                      <td>5</td>
+                      <td><input name="DiaryDate5" type="text" id="DiaryDate5" style="width: 90px"/></td>
+                      <td><input name="Purpose5" type="text" id="Purpose5" style="width: 350px"/></td>
+                      <td><input name="NumMiles5" type="text" id="NumMiles5" style="width: 90px" onblur="calcMiles()"/></td>
+                      <td>5</td>
+                      <td><input name="ExplainOtherDeductions5" type="text" id="ExplainOtherDeductions5" style="width: 300px"/></td>
+                    </tr>
+                    <tr>
+                      <td>6</td>
+                      <td><input name="DiaryDate6" type="text" id="DiaryDate6" style="width: 90px"/></td>
+                      <td><input name="Purpose6" type="text" id="Purpose6" style="width: 350px"/></td>
+                      <td><input name="NumMiles6" type="text" id="NumMiles6" style="width: 90px" onblur="calcMiles()"/></td>
+                      <td>6</td>
+                      <td><input name="ExplainOtherDeductions6" type="text" id="ExplainOtherDeductions6" style="width: 300px"/></td>
+                    </tr>
+                    <tr>
+                      <td>7</td>
+                      <td><input name="DiaryDate7" type="text" id="DiaryDate7" style="width: 90px"/></td>
+                      <td><input name="Purpose7" type="text" id="Purpose7" style="width: 350px"/></td>
+                      <td><input name="NumMiles7" type="text" id="NumMiles7" style="width: 90px" onblur="calcMiles()"/></td>
+                      <td>7</td>
+                      <td><input name="ExplainOtherDeductions7" type="text" id="ExplainOtherDeductions7" style="width: 300px"/></td>
+                    </tr>
+                    <tr>
+                      <td>8</td>
+                      <td><input name="DiaryDate8" type="text" id="DiaryDate8" style="width: 90px"/></td>
+                      <td><input name="Purpose8" type="text" id="Purpose8" style="width: 350px"/></td>
+                      <td><input name="NumMiles8" type="text" id="NumMiles8" style="width: 90px" onblur="calcMiles()"/></td>
+                      <td>8</td>
+                      <td><input name="ExplainOtherDeductions8" type="text" id="ExplainOtherDeductions8" style="width: 300px"/></td>
+                    </tr>
+                    <tr>
+                      <td>9</td>
+                      <td><input name="DiaryDate9" type="text" id="DiaryDate9" style="width: 90px"/></td>
+                      <td><input name="Purpose9" type="text" id="Purpose9" style="width: 350px"/></td>
+                      <td><input name="NumMiles9" type="text" id="NumMiles9" style="width: 90px" onblur="calcMiles()"/></td>
+                      <td>9</td>
+                      <td><input name="ExplainOtherDeductions9" type="text" id="ExplainOtherDeductions9" style="width: 300px"/></td>
+                    </tr>
+                    <tr>
+                      <td>10</td>
+                      <td><input name="DiaryDate10" type="text" id="DiaryDate10" style="width: 90px"/></td>
+                      <td><input name="Purpose10" type="text" id="Purpose10" style="width: 350px"/></td>
+                      <td><input name="NumMiles10" type="text" id="NumMiles10" style="width: 90px" onblur="calcMiles()"/></td>
+                      <td>10</td>
+                      <td><input name="ExplainOtherDeductions10" type="text" id="ExplainOtherDeductions10" style="width: 300px"/></td>
+                    </tr>
+                    <tr>
+                      <td colspan="3" align="right">Total Miles</td>
+                      <td><input name="Total_Miles" type="text" id="Total_Miles" style="width: 90px"/></td>
+                      <td colspan="2">&nbsp;</td>
+                    </tr>
+                    <tr>
+                      <td colspan="3" align="right">IRS Rate</td>
+                      <td><input  value=".555" name="IRS_Rate" type="text" id="IRS_Rate" style="width: 90px" /></td>
+                      <td colspan="2">&nbsp;</td>
+                    </tr>
+                    <tr>
+                      <td colspan="3" align="right">Total Miles Expense (B)</td>
+                      <td><input name="Total_Miles_Expense" type="text" id="Total_Miles_Expense" style="width: 90px"/></td>
+                      <td colspan="2">&nbsp;</td>
+                    </tr>
+                  </table>
+                  <table width="531" border="0">
+                    <tr>
+                      <td width="54">NOTES:</td>
+                      <td width="461">&nbsp;</td>
+                    </tr>
+                    <tr>
+                      <td valign="top">(A)</td>
+                      <td>Each line under EXPENSE, DIARY, and Other Deductions should<br />
+                        match one another. Other Deductions should include personal<br />
+                      expenses paid by the CU.</td>
+                    </tr>
+                    <tr>
+                      <td valign="top">(B)</td>
+                      <td>Grand totals should agree.</td>
+                    </tr>
+                    <tr>
+                      <td valign="top">(C)</td>
+                      <td>Expense Codes: &quot;AA&quot; for External Training/Conference, &quot;BB&quot; for Internal Training, and &quot;CC&quot; for Non-Training</td>
+                    </tr>
+                  </table>
+                  <p>&nbsp;</p></td>
+              </tr>
+              </table></td>
+          </tr>
+    </table>
+        
+                <input  VALUE="temp" name="OBKey__288_1" type="hidden" id="OBKey__288_1">
+                &nbsp; 
+                <input  VALUE="" name="OBKey__207_1" type="hidden" id="OBKey__207_1">
+                &nbsp;  
+                <input  VALUE="NO" name="OBKey__293_1" type="hidden" id="OBKey__293_1"> 
+                &nbsp;  
+                
+  </form>
+        </div>
+</body>
+
+</html>
