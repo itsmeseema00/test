@@ -1,0 +1,852 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<style>
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+blockquote {
+    margin: 0;
+    padding: 0;
+}
+body {
+    font-family: "Helvetica Neue", Helvetica, "Hiragino Sans GB", Arial, sans-serif;
+    font-size: 12pt;
+    line-height: 18pt;
+    color: #000000;
+    background-color: white;
+    margin: 10px 13px 10px 13px;
+}
+table {
+	margin: 10px 0 15px 0;
+	border-collapse: collapse;
+	border: 1px solid #bfbfbf;
+}
+td,th {	
+	border: 1px solid #bfbfbf;
+	padding: 3px 10px;
+}
+th {
+	border: 1px solid #b0b3b2;
+	padding: 5px 10px;	
+	background: #b0b3b2;
+	font-weight: bold;
+	text-align: left;
+}
+tr:nth-child(odd){ 
+	background: #ffffff;
+}
+tr:nth-child(even){ 
+	background: #efefef;
+}
+tr td:first-child {
+	font-weight: bold;
+	background: #dcdddd;
+}
+tr td:last-child {
+	min-width:50%;
+}
+a {
+    color: #0069d6;
+}
+a:hover {
+    color: #0050a3;
+    text-decoration: none;
+}
+a img {
+    border: none;
+}
+p {
+    margin-bottom: 9px;
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: #0064b9;
+    line-height: 25pt;
+}
+h1 {
+    margin-top:80px;
+    border: 0;
+    border-top: 1px solid #ccc;
+    padding-top:10px;    
+    font-size: 25pt;
+    margin-bottom:10pt;
+}
+h2 {
+    margin-top:20px;
+    font-size: 18pt;
+    margin-bottom:10pt;
+}
+h3 {
+    font-size: 18pt;
+    color: #7f7f7f;
+}
+h4 {
+    font-size: 15pt;
+}
+h5 {
+    font-size: 15pt;
+    color: #7f7f7f;
+}
+h6 {
+    font-size: 12pt;
+    color: #7f7f7f;
+}
+hr {
+    margin: 0 0 19pt;
+    border: 0;
+/*    border-bottom: 1px solid #ccc;*/
+}
+blockquote {
+    padding: 13px 13px 21px 15px;
+    margin-bottom: 18px;
+    font-family:georgia,serif;
+    font-style: italic;
+}
+blockquote:before {
+    content:"\201C";
+    font-size:40px;
+    margin-left:-10px;
+    font-family:georgia,serif;
+    color:#eee;
+}
+blockquote p {
+    font-size: 14pt;
+    font-weight: 300;
+    line-height: 18px;
+    margin-bottom: 0;
+    font-style: italic;
+}
+code, pre {
+    font-family: Monaco, Andale Mono, Courier New, monospace;
+}
+code {
+    background-color: #efefef;
+    color: rgba(0, 0, 0, 0.75);
+    padding: 1px 3px;
+    font-size: 10pt;
+    -webkit-border-radius: 3px;
+    -moz-border-radius: 3px;
+    border-radius: 3px;
+}
+pre {
+    background-color: #efefef;
+    display: block;
+    padding: 12px;
+    margin: 0 0 18px;
+    line-height: 16px;
+    font-size: 10pt;
+    border: 1px solid #d9d9d9;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+pre code {
+    background-color: clear;
+    color: rgba(0, 0, 0, 0.75);
+    font-size: 10pt;
+    padding: 0;
+}
+sup {
+    font-size: 0.83em;
+    vertical-align: super;
+    line-height: 0;
+}
+* {
+	-webkit-print-color-adjust: exact;
+}
+@media screen and (min-width: 914px) {
+    body {
+        width: 854px;
+        margin:10px auto;
+    }
+}
+@media print {
+    table, pre {
+        page-break-inside: avoid;
+    }
+    hr {
+        page-break-after: always;
+        border: 0;
+    }
+}
+br {
+    display: block;
+}
+
+
+</style>
+<title>Apple Confidential - Do Not Distribute</title>
+
+</head>
+<body>
+<h6>Apple Confidential - Do Not Distribute</h6>
+
+<h2></h2>
+
+<h1>Wallet</h1>
+
+<h3>Issuer Application-Based Provisioning</h3>
+
+<h6>March 04, 2017</h6>
+
+<h4>Version 1.2.0</h4>
+
+<hr />
+
+<h1>Confidentiality</h1>
+
+<p>The contents of this document, as well as any appendices, supplements, or follow up communications, are confidential and proprietary. They should be shared only with disclosed individuals and with disclosed partners.</p>
+
+<p>Any diagrams, specifications, APIs, schemas, code, or other material contained herein are the intellectual property of Apple Inc., unless otherwise indicated.</p>
+
+<p>Copyright © 2016 Apple Inc. All rights reserved.</p>
+
+<hr />
+
+<h1>Index</h1>
+
+<ul>
+<li><a href="#introduction">Introduction</a></li>
+<li><a href="#eligibility">Determining Eligibility</a></li>
+<li><a href="#request_configuration">PKAddPaymentPassRequestConfiguration</a></li>
+<li><a href="#add_view_controller">PKAddPaymentPassViewController</a></li>
+<li><a href="#add_request">PKAddPaymentPassRequest</a></li>
+<li><a href="#certificates">Appendix A : Validating Certificates</a></li>
+<li><a href="#encryption">Appendix B : Encryption</a>
+
+<ul>
+<li><a href="#encryptionecc">Appendix B.1 : EV_ECC_v2</a></li>
+<li><a href="#encryptionrsa">Appendix B.2 : EV_RSA_v2</a></li>
+</ul>
+</li>
+</ul>
+
+
+<hr />
+
+<h1><span id="introduction">Introduction</span></h1>
+
+<p>This document defines functionality payment card issuers may use in iOS Applications to enable Issuer Application based card provisioning.</p>
+
+<p>Use of this feature will require the Issuer Application to have the private entitlement: <code>com.apple.developer.payment-pass-provisioning</code>. Request that your provisioning profile be modified by Apple to obtain access to this entitlement by emailing <code>apple-pay-provisioning@apple.com</code>.</p>
+
+<p>Testing of this feature using production cards will require the Issuer Application be submitted to the App Store. Applications which did not originate from the App Store will be unable to communicate to the production Apple Servers. Once the Issuer Application is submitted to the App Store and ready for release, the Issuer Application can be tested by using promotion codes using these steps:</p>
+
+<pre><code>https://developer.apple.com/library/ios/documentation/LanguagesUtilities/Conceptual/iTunesConnect_Guide/Chapters/ProvidingPromoCodes.html#//apple_ref/doc/uid/TP40011225-CH5-SW1
+</code></pre>
+
+<p>The high level sequence of steps for this feature is as follows:</p>
+
+<ol>
+<li>Issuer Application determines eligibility on a per card basis.</li>
+<li>Issuer Application displays <code>PKAddPassButton</code> buttons to the user to add specific cards.</li>
+<li>The user taps such a button.</li>
+<li>The Issuer Application creates a <code>PKAddPaymentPassRequestConfiguration</code> for the card tapped.</li>
+<li>The Issuer Application creates <code>PKAddPaymentPassViewController</code> with the configuration created above.</li>
+<li>The Issuer Application presents the controller created above.</li>
+<li>The user initiates provisioning within the presented view controller.</li>
+<li>The framework calls the delegate callback on the Issuer Application, providing the certificates, nonce, nonce signature and a continuation callback to be called in step #14.</li>
+<li>The Issuer Application sends the certificates, nonce, and nonce signature to the Issuer Server.</li>
+<li>The Issuer Server generates a ciphertext containing card data, nonce, and nonce signature.</li>
+<li>The Issuer Server generates a cryptographic OTP to activate the card.</li>
+<li>The Issuer Server sends the ciphertext, associated ephemeral public key, and cryptographic OTP to the Issuer Application.</li>
+<li>The Issuer Application creates a <code>PKAddPaymentPassRequest</code> with the data returned by the server.</li>
+<li>The Issuer Application calls the continuation handler provided in the initial delegate callback with the request created above.</li>
+<li>The framework attempts to provision the card.</li>
+</ol>
+
+
+<h1><span id="eligibility">Determining Eligibility</span></h1>
+
+<p>To determine whether a device is capable of adding payment passes, use the class method <strong>+[PKAddPaymentPassViewController canAddPaymentPass]</strong>. This method will return true if the device or a paired device has a secure element available for Issuer Application based provisioning. This step <em>must</em> be performed if the application does not have a primary account identifier.</p>
+
+<p><em>After</em> determining the device supports the feature, the method <strong>-[PKPassLibrary canAddPaymentPassWithPrimaryAccountIdentifier:]</strong> can be used to determine if a specific pass that is already within the Apple Pay system can be added to the device or paired devices. The accuracy of the answer returned by this method depends on your process being entitled to view the payment passes provisioned on the system and an entitlement failure will manifest itself with this method always returning true.  This method will return incorrect results if the primary account identifier is <code>nil</code> and, therefore, should not be used on cards that are not yet within the Apple Pay system.</p>
+
+<p>Once it has been determined that a card can be added, the Issuer Application can use <code>PKAddPassButton</code> to show a standard UI to initiate Issuer Application based Provisioning.</p>
+
+<h1><span id="request_configuration">PKAddPaymentPassRequestConfiguration</span></h1>
+
+<h2>Initialization</h2>
+
+<pre><code>- (instancetype)initWithEncryptionScheme:(NSString *)encryptionScheme
+</code></pre>
+
+<table>
+<thead>
+<tr>
+<th> Parameters </th>
+<th>     </th>
+<th>     </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> encryptionScheme </td>
+<td> Required </td>
+<td> A valid encryption scheme name.<br><br>Valid Constants: <a href="#encryptionecc"><code>PKEncryptionSchemeECC_V2</code></a>, <a href="#encryptionrsa"><code>PKEncryptionSchemeRSA_V2</code></a></td>
+</tr>
+</tbody>
+</table>
+
+
+<p>The encryption scheme provided should describe the scheme that will be used by the Issuer server to encrypt card data. A mismatched scheme would result in the server using the wrong sequence of steps to decrypt the provided ciphertext.</p>
+
+<h2>Properties</h2>
+
+<table>
+<thead>
+<tr>
+<th> Name </th>
+<th> Type </th>
+<th> Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> cardholderName </td>
+<td> NSString </td>
+<td> The name of the person the card is issued to.</td>
+</tr>
+<tr>
+<td> primaryAccountNumberSuffix </td>
+<td> NSString </td>
+<td> The last four or five digits of the PAN. Presented to the user with dots prepended to indicate that it is a suffix.<br><br>This <strong>must not</strong> be the entire PAN.</td>
+</tr>
+<tr>
+<td> localizedDescription </td>
+<td> NSString </td>
+<td> A short description of the card.<br><br>Example: "<em>Green Travel</em>"<br>Example Usage: "You are adding your <em>Green Travel</em> Card".</td>
+</tr>
+<tr>
+<td> primaryAccountIdentifier </td>
+<td> NSString </td>
+<td> Filters the device and attached devices that already have this card provisioned. No filter is applied if the parameter is omitted.</td>
+</tr>
+<tr>
+<td> paymentNetwork </td>
+<td> NSString </td>
+<td> Filters the networks shown in the introduction view to this single network.</td>
+</tr>
+</tbody>
+</table>
+
+
+<p>All information provided in the configuration is used for initial setup and display purposes only. No sensitive information should be contained here nor, with the exception of the <strong>encryptionScheme</strong>, is any of this information transmitted from the device.</p>
+
+<h1><span id="add_view_controller">PKAddPaymentPassViewController</span></h1>
+
+<h2>Initialization</h2>
+
+<pre><code>- (instancetype)initWithRequestConfiguration:(PKAddPaymentPassRequestConfiguration *)configuration
+                                    delegate:(id&lt;PKAddPaymentPassViewControllerDelegate&gt;)delegate
+</code></pre>
+
+<table>
+<thead>
+<tr>
+<th> Parameters </th>
+<th>     </th>
+<th>     </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> configuration </td>
+<td> Required </td>
+<td> Configuration data for this provisioning. Display properties will be pulled from it to display initial state and the encryption scheme will be used to fetch the appropriate certificates.</td>
+</tr>
+<tr>
+<td> delegate </td>
+<td> Optional </td>
+<td> This delegate is required to be set before the user initiates provisioning.</td>
+</tr>
+</tbody>
+</table>
+
+
+<p>The view controller has a simple initialization that takes a configuration object. If the configuration is missing an encryption scheme or missing both the card holder name and PAN suffix, then the initializer will return <code>nil</code>. The initializer will also return <code>nil</code> if the process is not entitled to create this view controller.</p>
+
+<p>Once initialized, present the view controller with <code>-[UIViewController presentViewController:animated:completion:]</code>.</p>
+
+<h3>PKAddPaymentPassViewControllerDelegate methods</h3>
+
+<pre><code>- (void)addPaymentPassViewController:(PKAddPaymentPassViewController *)controller
+ generateRequestWithCertificateChain:(NSArray&lt;NSData *&gt; *)certificates
+                               nonce:(NSData *)nonce
+                      nonceSignature:(NSData *)nonceSignature
+                   completionHandler:(void(^)(PKAddPaymentPassRequest *request))handler
+</code></pre>
+
+<table>
+<thead>
+<tr>
+<th> Parameters </th>
+<th>     </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> controller </td>
+<td> The object calling this delegate method.</td>
+</tr>
+<tr>
+<td> certificates </td>
+<td> An array of certificates conforming to the specifications described in <a href="#certificates">Appendix A: Validating Certificates</a>. The validation described therein <strong>must</strong> be performed by the Issuer Server.<br><br>Each NSData contains the bytes of a <code>DER</code> encoded <code>X.509</code> certificate.</td>
+</tr>
+<tr>
+<td> nonce </td>
+<td> A one time use nonce generated by Apple Servers.<br><br>To be included in the encrypted card data under the key: "<strong>nonce</strong>".</td>
+</tr>
+<tr>
+<td> nonceSignature </td>
+<td> The device and account specific signature of the nonce.<br><br>To be included in the encrypted card data under the key: "<strong>nonceSignature</strong>".</td>
+</tr>
+<tr>
+<td> completionHandler </td>
+<td> The continuation handler provided for the application to apply a <code>PKAddPaymentPassRequest</code> object to after it receives encrypted data from the Issuer Server.<br><br>Note: if the handler has not been invoked within 20 seconds will be treated as a failure and the attempt halted.</td>
+</tr>
+</tbody>
+</table>
+
+
+<p>When the user initiates the provisioning attempt, the framework will fetch a fresh nonce along with the certificate chain for encryption. Once obtained and a signature generated, that information will be passed to the Issuer Application by calling this delegate method with the intention that it be forwarded to the Issuer Server. The Issuer Server is then responsible for encrypting card data and returning sufficient information to the Issuer Application for the application to be able to instantiate a <code>PKAddPaymentPassRequest</code>.</p>
+
+<p>The <code>nonce</code> and <code>nonceSignature</code> are both to be included within the encrypted card data so that they cannot be tampered with after they have been transmitted from the Issuer Server and both values will be valided by Apple Servers when the encrypted card data is received.</p>
+
+<pre><code>- (void)addPaymentPassViewController:(PKAddPaymentPassViewController *)controller
+          didFinishAddingPaymentPass:(PKPaymentPass *)pass
+                               error:(NSError *)error
+</code></pre>
+
+<p>The Issuer Application <strong>must</strong> dismiss the <code>PKAddPaymentPassViewController</code> when this delegate method is called. There will be no further delegate callbacks after.</p>
+
+<table>
+<thead>
+<tr>
+<th> Parameters </th>
+<th>     </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> controller </td>
+<td> The object calling this delegate method.</td>
+</tr>
+<tr>
+<td> pass </td>
+<td> The pass if provisioning was successful, <code>nil</code> otherwise.</td>
+</tr>
+<tr>
+<td> error </td>
+<td> When the pass is <code>nil</code> an error with domain <code>PKPassKitError</code> and a code from the enumeration <code>PKAddPaymentPassError</code> will be provided.</td>
+</tr>
+</tbody>
+</table>
+
+
+<table>
+<thead>
+<tr>
+<th> PKAddPaymentPassError codes </th>
+<th>     </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> PKAddPaymentPassErrorUnsupported </td>
+<td> The device does not support provisioning nor does any attached device.</td>
+</tr>
+<tr>
+<td> PKAddPaymentPassErrorUserCancelled </td>
+<td> The user cancelled the flow.</td>
+</tr>
+<tr>
+<td> PKAddPaymentPassErrorSystemCancelled </td>
+<td> The system cancelled the flow due to an unexpected error.</td>
+</tr>
+</tbody>
+</table>
+
+
+<h1><span id="add_request">PKAddPaymentPassRequest</span></h1>
+
+<table>
+<thead>
+<tr>
+<th> Properties </th>
+<th>     </th>
+<th>     </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> encryptedPassData </td>
+<td> NSData </td>
+<td> The ciphertext containing the card data, nonce, and nonce signature generated by the Issuer Server. The plaintext encrypted by the Issuer Server is described in the following section.<br><br>The encryption is specified in <a href="#encryption">Appendix B: Encryption</a>. All schemes will use the key of the leaf certificate passed to the Issuer Application via delegate callback as the static key.</td>
+</tr>
+<tr>
+<td> activationData </td>
+<td> NSData </td>
+<td> The cryptographic OTP required to activate the card by the Network. This data is not interpreted by Apple and the formats and contents are Network specific. The Network/Issuer is responsible for validating the OTP and activating the card.<br><br>Note: This is the same type of activation data used by <code>-[PKPassLibrary activatePaymentPass:withActivationData:completion:]</code>.</td>
+</tr>
+<tr>
+<td> ephemeralPublicKey </td>
+<td> NSData </td>
+<td> The bytes of the ephemeral public key which is required as a part of <a href="#encryptionecc"><code>PKEncryptionSchemeECC_V2</code></a>. The conversion of ECPoint to byte sequence <strong>must</strong> be performed <em>without</em> point compression. Any byte sequence leading with the octet 0x02 or 0x03 to indicate point compression will fail.<br><br>Note: The ECPoint to octet string conversion is described in <code>RFC 5480</code> section 2.2 and <code>SEC1-v2</code> section 2.3.3.</td>
+</tr>
+<tr>
+<td> wrappedKey </td>
+<td> NSData </td>
+<td> Randomly generated AES-256 bit key encrypted with decryptor's public key which is required as a part of <a href="#encryptionrsa"><code>PKEncryptionSchemeRSA_V2</code></a>.</td>
+</tr>
+</tbody>
+</table>
+
+
+<p>The plaintext will be the bytes of a JSON object that contains the following key-value pairs:</p>
+
+<table>
+<thead>
+<tr>
+<th> Name </th>
+<th> Type </th>
+<th> Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> </td>
+<td> <strong>FPAN Keys</strong> </td>
+<td></td>
+</tr>
+<tr>
+<td> primaryAccountNumber </td>
+<td> String </td>
+<td> The full PAN - digits only.</td>
+</tr>
+<tr>
+<td> name </td>
+<td> String </td>
+<td> The name of the cardholder.</td>
+</tr>
+<tr>
+<td> expiration </td>
+<td> String </td>
+<td> The expiration date as a string.<br><br>Example: 12/97</td>
+</tr>
+<tr>
+<td> </td>
+<td> <strong>FPAN-ID Keys</strong> </td>
+<td></td>
+</tr>
+<tr>
+<td> primaryAccountIdentifier </td>
+<td> String </td>
+<td> The primary account identifier.</td>
+</tr>
+<tr>
+<td> </td>
+<td> <strong>eFPAN Keys</strong> </td>
+<td></td>
+</tr>
+<tr>
+<td> encryptedPrimaryAccountNumber </td>
+<td> String </td>
+<td> Base-64 string which contains the primary account number encrypted with a key that Apple Servers do not have.</td>
+</tr>
+<tr>
+<td> networkName </td>
+<td> String </td>
+<td> A value to identify the recipient network. This value is <em>required</em> in all eFPAN cases.<br><br>Valid names: AmEx, Discover, MasterCard, Visa</td>
+</tr>
+<tr>
+<td> primaryAccountNumberPrefix </td>
+<td> String </td>
+<td>  PAN Prefix with a minimum length of 6 and a maximum length of 10.</td>
+</tr>
+<tr>
+<td> productType </td>
+<td> String </td>
+<td> A conditionally required value for cases where (<strong>primaryAccountNumberPrefix</strong>, <strong>networkName</strong>) is insufficient for routing or <strong>primaryAccountNumberPrefix</strong> is unavailable.<br><br>Note: When this value is used, <strong>primaryAccountNumberPrefix</strong> is no longer required.</td>
+</tr>
+<tr>
+<td> </td>
+<td> <strong>Common Keys</strong> </td>
+<td></td>
+</tr>
+<tr>
+<td> nonce </td>
+<td> String </td>
+<td> Hex String of the nonce bytes given to the Issuer Application via the delegate callback.</td>
+</tr>
+<tr>
+<td> nonceSignature </td>
+<td> String </td>
+<td> Hex String of the bytes nonce signature bytes given to the Issuer application via the delegate callback.</td>
+</tr>
+</tbody>
+</table>
+
+
+<p>The set of keys will always be the common keys and the keys required by a particular approach: FPAN, FPAN-ID, or eFPAN. For the eFPAN approach, the format and specification of encryptedPrimaryAccountNumber is up to each individual network, but the Apple Servers will interpret it as a base-64 string for transmission to the Network.</p>
+
+<p><strong>The FPAN and FPAN-ID approaches are recommended.</strong></p>
+
+<p>The common keys ensure that the ciphertext can be used only once (by the Apple Server validating the nonce) and tying it to a single device and account the Apple Server generated that nonce for (by the Apple Server validating the nonce signature).</p>
+
+<h1><span id="certificates">Appendix A : Validating Certificates</span></h1>
+
+<p>In the array of certificates, the leaf certificate will be the first element of that array and the sub-CA certificate will follow. To validate the chain of trust, the Issuer Server will have had to acquire the <strong>Apple Root CA - G3</strong> root Certificate Authority (CA) certificate which is available at:</p>
+
+<pre><code>https://www.apple.com/certificateauthority/
+</code></pre>
+
+<p>Ensure that there is a valid <code>X.509</code> chain of trust from the provided leaf through to this specific root CA by verifying that the leaf certificate was signed by the sub-CA certificate and that the sub-CA certificate is signed by the <strong>Apple Root CA - G3</strong> certificate. All standard factors defined in RFC 5280 (validity period, leaf revocation, etc.) should also be validated.</p>
+
+<p>The leaf certificate will have a marker OID <code>1.2.840.113635.100.6.39</code>. It will be marked critical if present and its absence should cause validation to fail.</p>
+
+<p><strong>It is critical that these steps be followed on the Issuer Server or that server will be vulnerable to releasing confidential card data to unauthorized parties.</strong></p>
+
+<h1><span id="encryption">Appendix B : Encryption</span></h1>
+
+<p>A certificate chain is passed to the Issuer Application and the public key of the decryptor (the static party) is provided by the leaf certificate within the certificate chain. The Issuer Server, which receives the certificate chain, is expected to take on the role of encryptor (the ephemeral party). The encryptor will encrypt card data and return it along with other scheme specific outputs.</p>
+
+<p>There are multiple available schemes for transforming plaintext into ciphertext:</p>
+
+<table>
+<thead>
+<tr>
+<th> Constant </th>
+<th> String </th>
+<th> Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> <a href="#encryptionecc">PKEncryptionSchemeECC_V2</a> </td>
+<td> <code>EV_ECC_v2</code> </td>
+<td> An <code>ECC</code> scheme.<br><br>Output: Ephemeral Public Key</td>
+</tr>
+<tr>
+<td> <a href="#encryptionrsa">PKEncryptionSchemeRSA_V2</a> </td>
+<td> <code>EV_RSA_v2</code> </td>
+<td> An <code>RSA</code> scheme.<br><br>Output: Wrapped Key</td>
+</tr>
+</tbody>
+</table>
+
+
+<p><strong>Note:</strong> If a constant is not available in the SDK it may be possible to use the string value of the constant directly.</p>
+
+<h1><span id="encryptionecc">Appendix B.1 : EV_ECC_v2</span></h1>
+
+<p>Here is a quick high level overview of the entire scheme:</p>
+
+<ul>
+<li><code>ECDH</code> -> <code>NIST Single-step KDF</code> (<code>NIST SP 800-56A</code>, section 5.8.1) using <code>SHA256</code> -> <code>AES-256</code> in <code>GCM</code> mode with 12 null byte IV.</li>
+</ul>
+
+
+<p>A shared symmetric key is derived by the first two steps which is then used by the final step to encrypt plaintext data into the resulting ciphertext.</p>
+
+<p>The public-private keys used by this scheme use Elliptic Curve <code>1.2.840.10045.3.1.7</code>. Other aliases for this curve are:</p>
+
+<ul>
+<li>NIST P-256</li>
+<li>1.2.840.10045.3.1.7</li>
+<li>prime256v1</li>
+<li>secp256r1</li>
+</ul>
+
+
+<h4>Symmetric Key Derivation</h4>
+
+<ul>
+<li><code>ECDH</code> -> <code>NIST Single-step KDF</code> (<code>NIST SP 800-56A</code>, section 5.8.1) using <code>SHA256</code></li>
+</ul>
+
+
+<p>This scheme makes use of Elliptic Curve Diffie-Hellman (<code>ECDH</code> or <code>id-ecDH 1.3.132.1.12</code>) which operates on two sets of public-private key pairs (<code>A</code> and <code>B</code>). Given such a key pair <code>A</code>, it is possible to use the private key of that set (<code>A_private</code>) and the public key of the other set (<code>B_public</code>) to derive a shared secret. The other party should be able to compute the same shared secret using <code>A_public</code> and <code>B_private</code>.</p>
+
+<p>That shared secret is then used as an input to the <code>NIST Single-step KDF</code> parameterized with the <code>SHA-256</code> hash function to derive a 256 bit key. The following are the inputs to the KDF (where <strong>OtherInfo</strong> is derived according to the Concatenation Format specified in section 5.8.1.2.1 in <code>NIST SP 800-56A</code>):</p>
+
+<table>
+<thead>
+<tr>
+<th> Key </th>
+<th> Type </th>
+<th> Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> Z </td>
+<td> Fixed-length Bit String </td>
+<td> Shared Secret computed by <code>ECDH</code></td>
+</tr>
+<tr>
+<td> keydatalen </td>
+<td> Integer </td>
+<td> 256</td>
+</tr>
+<tr>
+<td> AlgorithmID </td>
+<td> Variable-length Bit String </td>
+<td> id-aes256-GCM</td>
+</tr>
+<tr>
+<td> PartyUInfo </td>
+<td> Fixed-length Bit String </td>
+<td> Apple</td>
+</tr>
+<tr>
+<td> PartyVInfo </td>
+<td> Fixed-length Bit String </td>
+<td> The bytes of the ephemeral public key<br><br>Note: The ECPoint to bytes conversion is described in <code>RFC 5480</code> section 2.2 and <code>SEC1-v2</code> section 2.3.3.</td>
+</tr>
+</tbody>
+</table>
+
+
+<p><strong>Implementation Specific Notes:</strong></p>
+
+<pre><code>1. The length of variable length bit strings shall be encoded as one unsigned byte.
+
+2. The ephemeral key ECPoint shall be converted to a byte sequence without the use of point compression.
+</code></pre>
+
+<p>It is expected that the encryptor generates a new ephemeral public-private key pair for each ciphertext and that the key pair used by the receiver/decryptor remains static. After deriving the symmetric key to perform encryption, the public portion of the ephemeral key pair is to be sent to the receiver alongside the ciphertext while the private portion is destroyed.</p>
+
+<h4>Symmetric Encryption</h4>
+
+<ul>
+<li>Derived key -> <code>AES-256</code> in <code>GCM</code> mode with 12 null byte IV.</li>
+</ul>
+
+
+<p>The derived key is used to encrypt plaintext data using <code>AES-256</code> in <code>GCM</code> mode with a 12 null byte Initialization Vector (IV) and no padding. Ensure that the encryption generates the full <code>GCM</code> authentication tag of 128 bits.</p>
+
+<h4>Sender/Encryptor Usage</h4>
+
+<table>
+<thead>
+<tr>
+<th> Inputs </th>
+<th>  </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> Static_public </td>
+<td> The receiver/decryptor's static public <code>ECC</code> key.</td>
+</tr>
+<tr>
+<td> plaintext </td>
+<td> Plaintext to be encrypted.</td>
+</tr>
+</tbody>
+</table>
+
+
+<ol>
+<li>Generate a new random ephemeral public private <code>ECC</code> key pair (<code>Ephemeral_public</code> and <code>Ephemeral_private</code>).</li>
+<li>Use <code>Ephemeral_private</code> and <code>Static_public</code> as inputs to the Symmetric Key Derivation.</li>
+<li>Perform Symmetric Encryption on the plaintext to produce the ciphertext.</li>
+</ol>
+
+
+<table>
+<thead>
+<tr>
+<th> Outputs </th>
+<th> </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> Ephemeral_public </td>
+<td> The ephemeral public <code>ECC</code> key to be sent to the receiver/decryptor from step #2.</td>
+</tr>
+<tr>
+<td> ciphertext </td>
+<td> Encrypted plaintext from step #3.</td>
+</tr>
+</tbody>
+</table>
+
+
+<h1><span id="encryptionrsa">Appendix B.2 : EV_RSA_v2</span></h1>
+
+<h4>Symmetric Key Generation</h4>
+
+<ol>
+<li><p>Generate 256 random bits to use as the symmetric key.</p></li>
+<li><p>Encrypt the generated key with the decryptor's static public <code>RSA</code> key to produce the wrapped key using <code>RSA</code> in <code>ECB</code> mode and <code>OAEPWithSHA256AndMGF1Padding</code>.</p></li>
+</ol>
+
+
+<h4>Symmetric Encryption</h4>
+
+<p>The symmetric key is used to encrypt plaintext data using <code>AES-256</code> in <code>GCM</code> mode with a 12 null byte Initialization Vector (IV) and no padding. Ensure that the encryption generates the full <code>GCM</code> authentication tag of 128 bits.</p>
+
+<p>It is expected that the encryptor generates a new symmetric key for each ciphertext and that the key pair used by the receiver/decryptor remains static. After deriving the symmetric key to perform encryption, the wrapped key is to be sent to the receiver while the symmetric key is destroyed after use.</p>
+
+<h4>Sender/Encryptor Usage</h4>
+
+<table>
+<thead>
+<tr>
+<th> Inputs </th>
+<th>  </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> Static_public </td>
+<td> The receiver/decryptor's static public <code>RSA</code> key.</td>
+</tr>
+<tr>
+<td> plaintext </td>
+<td> Plaintext to be encrypted.</td>
+</tr>
+</tbody>
+</table>
+
+
+<ol>
+<li>Generate the symmetric key.</li>
+<li>Perform Symmetric Encryption on the plaintext to produce the ciphertext.</li>
+</ol>
+
+
+<table>
+<thead>
+<tr>
+<th> Outputs </th>
+<th> </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> wrappedKey </td>
+<td> The encrypted symmetric key to be sent to the receiver/decryptor from step #1.</td>
+</tr>
+<tr>
+<td> ciphertext </td>
+<td> Encrypted plaintext from step #2.</td>
+</tr>
+</tbody>
+</table>
+
+</body>
+</html>
